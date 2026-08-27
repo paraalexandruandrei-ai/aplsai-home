@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>APLSAI HOME — Hosting Ready V1</title>
+<style>
+:root{
+ --bg:#faf9f6;--paper:#fff;--green:#536b45;--green2:#687b5b;--ink:#142331;
+ --line:#e2e3dd;--moro:#3a2117;--moro2:#523329;--muted:#66706d;--soft:#f1f2eb;--danger:#9a533a
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+button,input{font:inherit}button{cursor:pointer}h1,h2,h3{font-family:Georgia,serif;font-weight:500}
+header{height:78px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 30px;position:sticky;top:0;z-index:50}
+.logo{font-weight:900;font-size:28px;letter-spacing:.13em;color:var(--moro);line-height:.9}.logo small{display:block;font-size:11px;letter-spacing:.55em;color:var(--green);margin-top:8px}
+nav{margin-left:auto;display:flex;gap:9px;align-items:center}nav button{border:0;background:transparent;font-weight:750;padding:9px 12px}
+.primary{background:var(--moro);color:#fff;border:0;border-radius:8px;padding:13px 20px;font-weight:850}.secondary{background:#fff;border:1px solid #999;border-radius:8px;padding:12px 17px;font-weight:800}
+.hero{display:grid;grid-template-columns:.42fr .58fr;min-height:520px;background:#f4f1eb}.hero-copy{padding:55px 45px;display:flex;flex-direction:column;justify-content:center}.hero h1{font-size:52px;line-height:1.04;margin:8px 0 18px}.hero p{font-size:17px;line-height:1.55}.hero-img{background:url("https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1800&q=90") center/cover no-repeat}
+.hero-actions{display:flex;gap:9px;flex-wrap:wrap}.trust{font-size:12px;color:var(--muted);margin-top:13px}
+.wrap{max-width:1230px;margin:auto;padding:38px 20px 52px}.eyebrow{color:var(--green);font-weight:900;text-transform:uppercase;letter-spacing:.08em;font-size:11px}.eyebrow.method{font-size:16px;letter-spacing:.11em;margin-bottom:9px;display:block}
+.section-title{text-align:center;font-size:35px;margin:6px 0}.section-sub{text-align:center;color:var(--muted);margin:0 auto 24px;max-width:760px}
+.triple{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.info{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px}.round{width:54px;height:54px;border-radius:50%;background:var(--soft);display:grid;place-items:center;color:var(--green);font-weight:900;font-size:20px}
+.project{background:#f2efea}.projgrid{display:grid;grid-template-columns:1fr .95fr 1fr;gap:14px}.proj{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}.projimg{height:250px;background-size:cover;background-position:center}.proj>b{display:block;padding:10px 12px}
+.wizard-head{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:78px;z-index:40}.steps{max-width:1200px;margin:auto;display:grid;grid-template-columns:repeat(8,1fr);padding:14px 18px}.step{text-align:center;font-size:10px;color:#666}.step i{font-style:normal;width:31px;height:31px;border-radius:50%;background:#eee;display:grid;place-items:center;margin:auto auto 4px;font-weight:900}.step.current i,.step.done i{background:var(--green);color:#fff}
+.wizard{max-width:1260px;margin:25px auto 50px;padding:0 18px;display:grid;grid-template-columns:2.35fr .75fr;gap:16px}.panel{background:#fff;border:1px solid var(--line);border-radius:12px}.question{padding:28px 30px}.question h2{font-size:38px;margin:9px 0 8px}.question>p{color:var(--muted)}
+.search-zone-box{background:linear-gradient(135deg,#f5f7f2,#fff);border:1px solid #d9dfd3;border-radius:14px;padding:22px;margin:16px 0}.search-zone-box h3{font-size:22px;margin:0 0 6px}.search-zone-box .lead{color:var(--muted);margin:0 0 16px}
+.field{margin:14px 0}.field label{display:block;font-weight:800;margin-bottom:6px}.field input{width:100%;padding:15px 16px;border:1px solid #c8c8c3;border-radius:10px;font-size:18px;min-height:56px}.field input:focus{outline:2px solid #9eae91;border-color:transparent}
+.zone-presets{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}.preset{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 13px;font-weight:800}.preset:hover{border-color:var(--green)}
+.choice-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}.choice{border:1px solid var(--line);background:#fff;border-radius:10px;padding:14px;text-align:center;min-height:100px}.choice.selected{border:2px solid var(--green);background:#fbfcf8}.choice b{display:block;margin-top:5px}.choice small{display:block;color:var(--muted);margin-top:4px}.multi{grid-template-columns:repeat(4,1fr)}
+.style-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:15px}.style-card{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;text-align:left}.style-card.selected{border:3px solid var(--green);box-shadow:0 0 0 3px #536b4520}.style-card.selected:after{content:"✓ selezionata";display:block;background:var(--green);color:#fff;font-size:11px;font-weight:900;padding:6px 10px}.style-card img{width:100%;height:165px;object-fit:cover;display:block}.style-card p{padding:10px 12px;margin:0;font-weight:850}
+.side{padding-bottom:12px}.side h3{text-align:center}.side img{width:100%;height:190px;object-fit:cover}.summary{padding:10px}.sum{border:1px solid #eee;border-radius:8px;padding:10px;margin:6px 0}.sum b{display:block}.sum small{color:var(--muted)}
+.error{display:none;background:#fff0e8;border-left:4px solid var(--danger);padding:10px 12px;border-radius:7px;margin-top:12px}.navrow{display:flex;justify-content:space-between;gap:10px;margin-top:20px}
+.success{background:var(--soft);border-left:4px solid var(--green);padding:16px;border-radius:8px;margin-top:18px}
+.results{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.result{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}.result img{width:100%;height:210px;object-fit:cover}.result-body{padding:15px}.tag{display:inline-block;border-radius:999px;padding:5px 9px;color:#fff;font-size:10px;font-weight:900}.t1{background:var(--green)}.t2{background:#315f70}.t3{background:#70528a}
+footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(--muted);text-align:center;font-size:12px}
+@media(max-width:900px){.wizard{display:block}.style-grid{grid-template-columns:1fr 1fr}.choice-grid{grid-template-columns:1fr 1fr}.hero{display:block}.hero-img{height:330px}}
+
+#mobileStart{display:none}
+@media(max-width:700px){
+  body{background:#fff}
+  header{height:64px;padding:4px 10px;gap:8px}
+  .logo{font-size:21px;letter-spacing:.11em}
+  .logo small{font-size:8px;letter-spacing:.48em;margin-top:5px}
+  #desktopNav{display:none}
+  #mobileStart{display:block;margin-left:auto;padding:10px 16px;font-size:12px;border-radius:999px}
+
+  .hero{display:block;min-height:0}
+  .hero-copy{padding:24px 16px 18px}
+  .hero h1{font-size:39px;line-height:1.02;margin:8px 0 14px}
+  .hero p{font-size:15px;line-height:1.5}
+  .hero-actions{display:grid;grid-template-columns:1fr;gap:8px}
+  .hero-actions button{width:100%;min-height:50px}
+  .hero-img{height:285px;background-position:center}
+  .trust{font-size:10px;line-height:1.4}
+
+  .wrap{padding:28px 12px 38px}
+  .eyebrow.method{font-size:14px}
+  .section-title{font-size:29px;line-height:1.1}
+  .section-sub{font-size:14px}
+  .triple{grid-template-columns:1fr;gap:10px}
+  .info{padding:16px}
+  .round{width:46px;height:46px}
+
+  .projgrid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;padding-bottom:6px}
+  .proj{flex:0 0 88vw;scroll-snap-align:center}
+  .projimg{height:230px}
+
+  .wizard-head{top:64px}
+  .steps{display:flex;overflow-x:auto;gap:10px;padding:8px 10px;scrollbar-width:none}
+  .steps::-webkit-scrollbar{display:none}
+  .step{flex:0 0 58px;font-size:9px}
+  .step i{width:28px;height:28px}
+
+  .wizard{display:block;margin:0;padding:0}
+  .panel{border-radius:0;border-left:0;border-right:0}
+  .question{padding:22px 14px 96px}
+  .question h2{font-size:30px;line-height:1.08;margin-top:8px}
+  .question>p{font-size:14px}
+  .side{display:none}
+
+  .search-zone-box{padding:16px 12px;border-radius:12px}
+  .search-zone-box h3{font-size:20px}
+  .field input{min-height:54px;font-size:16px}
+  .zone-presets{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .preset{width:100%;padding:10px 8px;font-size:12px}
+
+  .choice-grid,.multi{grid-template-columns:1fr 1fr;gap:8px}
+  .choice{min-height:84px;padding:10px;font-size:13px}
+  .choice small{font-size:10px}
+
+  .style-grid{grid-template-columns:1fr 1fr;gap:9px}
+  .style-card img{height:125px}
+  .style-card p{padding:8px 9px;font-size:13px}
+  .style-card small{font-size:10px!important}
+
+  .navrow{
+    position:fixed;left:0;right:0;bottom:0;z-index:60;
+    background:#fffffff2;border-top:1px solid var(--line);
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+    margin:0;backdrop-filter:blur(8px)
+  }
+  .navrow .secondary{min-width:100px}
+  .navrow .primary{flex:1;min-height:48px}
+
+  #resultsView{padding:24px 12px 36px}
+  .results{grid-template-columns:1fr;gap:12px}
+  .result img{height:220px}
+  .result-body{padding:14px}
+  #strategyMsg .success{font-size:14px}
+  #strategyMsg .success h2{font-size:25px!important}
+
+  footer{padding:18px 12px;font-size:10px}
+}
+
+
+.app-area{background:#faf9f6;min-height:70vh}
+.area-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.area-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px}
+.area-card input,.area-card select{width:100%;padding:12px;border:1px solid #c9c9c4;border-radius:8px;margin:5px 0 10px}
+.full{width:100%}.hint{font-size:11px;color:var(--muted)}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.stat-box{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px}.stat-box span{display:block;color:var(--muted);font-size:11px}.stat-box strong{font-size:20px}
+.staff-tabs{display:flex;gap:7px;overflow:auto;margin:12px 0}.staff-tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 12px;font-weight:800;white-space:nowrap}.staff-tab.active{background:var(--moro);color:#fff}
+.list-row{border:1px solid var(--line);border-radius:8px;padding:10px;margin:7px 0;background:#fff}.score{float:right;font-weight:900;font-size:19px}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap}
+.mobile-actions{display:none;margin-left:auto;gap:6px}
+.mobile-menu{position:fixed;top:66px;right:8px;z-index:100;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 30px #0002;padding:7px;min-width:180px}
+.mobile-menu button{display:block;width:100%;text-align:left;border:0;background:#fff;padding:11px;font-weight:800;border-radius:7px}.mobile-menu button:hover{background:var(--soft)}
+@media(max-width:700px){
+  .mobile-actions{display:flex}
+  #mobileStart{margin-left:0}
+  .area-grid{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .app-area .wrap{padding-bottom:80px}
+  .area-card{padding:14px}
+  .staff-tabs{padding-bottom:3px}
+}
+
+
+.beta-note{background:#f1f2eb;border-left:4px solid var(--green);padding:12px 14px;border-radius:8px;margin:10px 0 16px}
+.ref-box{display:flex;gap:8px;align-items:center}.ref-box input{margin:0;flex:1}
+@media(max-width:700px){.ref-box{display:grid;grid-template-columns:1fr}.ref-box button{width:100%}}
+
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">APLSAI<small>HOME</small></div>
+  <nav id="desktopNav">
+      <button onclick="goHome()">Home</button>
+      <button onclick="document.getElementById('how').scrollIntoView()">Come funziona</button>
+      <button onclick="showClientArea()">Area Clienti</button>
+      <button onclick="showStaffArea()">Area Staff</button>
+      <button class="primary" onclick="startWizard()">CREA LA TUA CASA POSSIBILE</button>
+    </nav>
+    <div class="mobile-actions">
+      <button id="mobileArea" class="secondary" onclick="toggleMobileMenu()">☰</button>
+      <button id="mobileStart" class="primary" onclick="startWizard()">INIZIA</button>
+    </div>
+</header>
+
+<main id="home">
+<section class="hero">
+  <div class="hero-copy">
+    <span class="eyebrow">APLSAI HOME</span>
+    <h1>La casa che cerchi non esiste ancora?</h1>
+    <p>Raccontaci dove vuoi vivere, quanto vuoi investire e cosa conta davvero per te. Costruiamo insieme la tua Casa Possibile.</p>
+    <div class="hero-actions"><button class="primary" onclick="startWizard()">CREA LA TUA CASA POSSIBILE</button><button class="secondary" onclick="document.getElementById('how').scrollIntoView()">SCOPRI COME FUNZIONA</button></div>
+    <div class="trust">Servizio indipendente · Nessun costo iniziale · Nessun costo di agenzia immobiliare APLSAI nella fase iniziale</div>
+  </div>
+  <div class="hero-img" aria-label="Interno realistico contemporaneo senza scritte"></div>
+</section>
+
+<section id="how" class="wrap">
+  <span class="eyebrow method">IL METODO</span>
+  <h2 class="section-title">Prima capiamo te. Poi costruiamo le possibilità.</h2>
+  <p class="section-sub">Il risultato viene definito prima. Meno varianti, più controllo, un percorso più semplice da vivere.</p>
+  <div class="triple">
+    <article class="info"><div class="round">1</div><h3>Raccontaci cosa cerchi</h3><p>Zona, budget, spazi, priorità e tempi.</p></article>
+    <article class="info"><div class="round">2</div><h3>Costruiamo le possibilità</h3><p>Valutiamo ciò che esiste e ciò che può diventare la casa giusta.</p></article>
+    <article class="info"><div class="round">3</div><h3>Ti portiamo al risultato</h3><p>Il cliente non deve vivere ogni dettaglio del cantiere.</p></article>
+  </div>
+</section>
+
+<section class="project">
+  <div class="wrap">
+    <h2 class="section-title">Stato attuale → trasformazione → Casa Possibile</h2>
+    <div class="projgrid">
+      <article class="proj"><div class="projimg" style="background-image:url('https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1200&q=88')"></div><b>Stato attuale</b></article>
+      <article class="proj"><div class="projimg" style="background:#fff;display:grid;place-items:center"><svg viewBox="0 0 600 350" width="95%" height="95%"><rect x="30" y="30" width="540" height="290" fill="none" stroke="#263136" stroke-width="5"/><path d="M220 30v115H105v175M220 145h160V30M380 145v175M30 230h190M380 230h190" fill="none" stroke="#8a8f90" stroke-width="5"/><path d="M220 145h160M380 145v90" fill="none" stroke="#b45d52" stroke-width="8" stroke-dasharray="14 9"/><path d="M250 118v125M250 243h130M450 195v125" fill="none" stroke="#536b45" stroke-width="8"/></svg></div><b>Progetto / trasformazione</b></article>
+      <article class="proj"><div class="projimg" style="background-image:url('https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1200&q=88')"></div><b>Casa Possibile</b></article>
+    </div>
+  </div>
+</section>
+</main>
+
+<section id="wizardView" style="display:none">
+  <div class="wizard-head"><div class="steps" id="steps"></div></div>
+  <div class="wizard">
+    <section class="panel question">
+      <span class="eyebrow" id="stepLabel">Passo 1 di 8</span>
+      <div id="question"></div>
+      <div id="error" class="error"></div>
+      <div class="navrow"><button class="secondary" onclick="back()">Indietro</button><button class="primary" onclick="next()">Avanti</button></div>
+    </section>
+    <aside class="panel side"><h3>La tua Casa Possibile</h3><img id="sideImg" src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=900&q=85"><div id="summary" class="summary"></div></aside>
+  </div>
+</section>
+
+<section id="resultsView" class="wrap" style="display:none">
+  <span class="eyebrow">Le tue strategie</span><h2 class="section-title" style="text-align:left">Scegli quella che senti più tua</h2>
+  <div class="results" id="results"></div><div id="strategyMsg"></div>
+</section>
+
+
+<section id="clientArea" class="app-area" style="display:none">
+  <div class="wrap">
+    <span class="eyebrow">Area Clienti</span>
+    <h2 class="section-title" style="text-align:left">La tua ricerca, sempre visibile</h2>
+    <div id="clientLoginBox" class="area-grid">
+      <article class="area-card">
+        <h3>Accedi</h3>
+        <label>Email</label><input id="clientEmail" type="email" placeholder="Email">
+        <label>Password</label><input id="clientPassword" type="password" placeholder="Password">
+        <button class="primary full" onclick="clientLogin()">Entra</button>
+        <p class="hint">Demo V19 locale: i profili creati vengono salvati nel browser.</p>
+      </article>
+      <article class="area-card">
+        <h3>Da qui puoi</h3>
+        <ul>
+          <li>controllare lo stato della ricerca</li>
+          <li>rivedere la strategia scelta</li>
+          <li>modificare la richiesta</li>
+          <li>mettere in pausa o riattivare la ricerca</li>
+          <li>vedere aggiornamenti e proposte</li>
+        </ul>
+      </article>
+    </div>
+    <div id="clientDashboard" style="display:none">
+      <div class="beta-note"><b>Ricerca attiva.</b> I tuoi dati e le tue preferenze vengono salvati in questa demo locale per permetterci di testare il percorso completo.</div>
+      <div class="stats-grid">
+        <div class="stat-box"><span>Stato</span><strong id="cStatus">—</strong></div>
+        <div class="stat-box"><span>Giorni APLSAI</span><strong id="cDays">0</strong></div>
+        <div class="stat-box"><span>Strategia</span><strong id="cStrategy">—</strong></div>
+        <div class="stat-box"><span>Proposte</span><strong id="cProposals">0</strong></div>
+      </div>
+      <div class="area-grid">
+        <article class="area-card"><h3>La mia richiesta</h3><div id="clientProfile"></div><div class="row-actions"><button class="primary" onclick="editCurrentProfile()">Modifica richiesta</button><button class="secondary" onclick="togglePause()">Pausa / riattiva</button></div></article>
+        <article class="area-card"><h3>Aggiornamenti</h3><div id="clientUpdates"></div></article>
+      </div>
+
+      <div class="area-grid">
+        <article class="area-card">
+          <h3>Invita un amico</h3>
+          <p>Condividi APLSAI con qualcuno che sta cercando casa.</p>
+          <div class="ref-box"><input id="friendEmail" type="email" placeholder="Email dell'amico"><button class="primary" onclick="createReferral()">Invita</button></div>
+          <div id="myReferralList"></div>
+        </article>
+        <article class="area-card">
+          <h3>I miei documenti</h3>
+          <p>Nella V1 online qui troverai planimetrie, schede Casa Possibile e documenti condivisi dallo staff.</p>
+          <div id="clientDocs"><div class="list-row">Nessun documento condiviso.</div></div>
+        </article>
+      </div>
+      <button class="secondary" onclick="clientLogout()">Esci</button>
+    </div>
+  </div>
+</section>
+
+<section id="staffArea" class="app-area" style="display:none">
+  <div class="wrap">
+    <span class="eyebrow">Area Staff</span>
+    <h2 class="section-title" style="text-align:left">Oggi: cosa richiede attenzione</h2>
+    <div id="staffLoginBox" class="area-grid">
+      <article class="area-card">
+        <h3>Accesso staff</h3>
+        <label>Email</label><input id="staffEmail" type="email" placeholder="Email">
+        <label>Password</label><input id="staffPassword" type="password" placeholder="Password">
+        <button class="primary full" onclick="staffLogin()">Entra</button>
+        <p class="hint">Demo locale: usa qualsiasi email e password non vuote.</p>
+      </article>
+      <article class="area-card"><h3>Ruoli previsti</h3><p>Super Admin, Admin e Consulente con permessi separati nella versione server.</p></article>
+    </div>
+    <div id="staffDashboard" style="display:none">
+      <div class="stats-grid">
+        <div class="stat-box"><span>Clienti</span><strong id="sClients">0</strong></div>
+        <div class="stat-box"><span>Da seguire</span><strong id="sFollow">0</strong></div>
+        <div class="stat-box"><span>Immobili</span><strong id="sProperties">0</strong></div>
+        <div class="stat-box"><span>Trattative</span><strong id="sDeals">0</strong></div>
+      </div>
+      <div class="staff-tabs">
+        <button class="staff-tab active" onclick="staffTab('today',this)">Oggi</button>
+        <button class="staff-tab" onclick="staffTab('clients',this)">Clienti</button>
+        <button class="staff-tab" onclick="staffTab('properties',this)">Immobili</button>
+        <button class="staff-tab" onclick="staffTab('matching',this)">Matching</button>
+        <button class="staff-tab" onclick="staffTab('deals',this)">Trattative</button><button class="staff-tab" onclick="staffTab('referrals',this)">Referral</button><button class="staff-tab" onclick="staffTab('documents',this)">Documenti</button>
+      </div>
+      <div id="staff-today" class="staff-panel"><div id="todayGrid" class="area-grid"></div></div>
+      <div id="staff-clients" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Clienti</h3><div id="staffClientList"></div></article><article class="area-card"><h3>Scheda cliente</h3><div id="staffClientDetail">Seleziona un cliente.</div></article></div></div>
+      <div id="staff-properties" class="staff-panel" style="display:none"><div class="area-grid">
+        <article class="area-card"><h3>Nuovo immobile</h3>
+          <input id="propRef" placeholder="Riferimento">
+          <input id="propZone" placeholder="Zona">
+          <input id="propPrice" type="number" placeholder="Prezzo">
+          <input id="propSqm" type="number" placeholder="Metratura">
+          <input id="propBeds" type="number" placeholder="Camere">
+          <input id="propBaths" type="number" placeholder="Bagni">
+          <select id="propState"><option>Chiavi in mano</option><option>Da ristrutturare</option><option>Nuova costruzione</option></select>
+          <button class="primary full" onclick="saveProperty()">Salva immobile</button>
+        </article>
+        <article class="area-card"><h3>Immobili</h3><div id="propertyList"></div></article>
+      </div></div>
+      <div id="staff-matching" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Cliente → immobili</h3><select id="matchClient"></select><button class="primary" onclick="runClientMatch()">Calcola</button><div id="clientMatchResults"></div></article><article class="area-card"><h3>Immobile → clienti</h3><select id="matchProperty"></select><button class="primary" onclick="runPropertyMatch()">Calcola</button><div id="propertyMatchResults"></div></article></div></div>
+      <div id="staff-deals" class="staff-panel" style="display:none"><div id="dealList"></div></div>
+      <div id="staff-referrals" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Referral</h3><div id="staffReferralList"></div></article><article class="area-card"><h3>Regola V1</h3><p>Credito, sconto o Premium temporaneo. Nessun premio economico collegato a compravendite nella prima versione.</p></article></div></div>
+      <div id="staff-documents" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Condividi documento</h3><select id="docClient"></select><input id="docTitle" placeholder="Titolo documento"><input id="docUrl" placeholder="Link documento o file"><button class="primary full" onclick="shareDocument()">Condividi</button></article><article class="area-card"><h3>Documenti condivisi</h3><div id="staffDocList"></div></article></div></div>
+      <button class="secondary" onclick="staffLogout()">Esci</button>
+    </div>
+  </div>
+</section>
+
+<div id="mobileMenu" class="mobile-menu" style="display:none">
+  <button onclick="goHome();toggleMobileMenu(false)">Home</button>
+  <button onclick="showClientArea();toggleMobileMenu(false)">Area Clienti</button>
+  <button onclick="showStaffArea();toggleMobileMenu(false)">Area Staff</button>
+</div>
+
+<footer>APLSAI HOME · Hosting Ready V1</footer>
+
+<script>
+const stepsNames=["Zona","Budget","Spazi","Indispensabili","Tempi","Tipo casa","Stile","Riepilogo"];
+let step=1;
+let data={zone:{main:"",km:null},budget:{ideal:null,max:null,flex:null},spaces:{sqm:null,beds:null,baths:null},must:[],timing:null,houseTypes:[],purchase:[],style:null};
+
+const HOUSE_IMAGES_BY_TYPE={
+ "Appartamento":"https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=90",
+ "Attico / superattico":"https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1200&q=90",
+ "Villa indipendente":"https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?auto=format&fit=crop&w=1200&q=90",
+ "Villetta a schiera":"https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=90",
+ "Casa bifamiliare":"https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1200&q=90",
+ "Loft":"https://images.unsplash.com/photo-1600210491369-e753d80a41f3?auto=format&fit=crop&w=1200&q=90",
+ "Nuova costruzione":"https://images.unsplash.com/photo-1600607688969-a5bfcd646154?auto=format&fit=crop&w=1200&q=90",
+ "Da ristrutturare":"https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1200&q=90"
+};
+const STYLE_IMAGES_BY_NAME={
+ "Moderno essenziale":"https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1200&q=90",
+ "Scandinavo caldo":"https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=90",
+ "Industrial urbano":"https://images.unsplash.com/photo-1600210491369-e753d80a41f3?auto=format&fit=crop&w=1200&q=90",
+ "Classico contemporaneo":"https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=90",
+ "Mediterraneo naturale":"https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1200&q=90",
+ "Minimal sofisticato":"https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90"
+};
+let STYLE_IMAGES=[];
+let HOUSE_IMAGES=[];
+function refreshSessionImages(){
+ STYLE_IMAGES=[
+  STYLE_IMAGES_BY_NAME["Moderno essenziale"],
+  STYLE_IMAGES_BY_NAME["Scandinavo caldo"],
+  STYLE_IMAGES_BY_NAME["Industrial urbano"],
+  STYLE_IMAGES_BY_NAME["Classico contemporaneo"],
+  STYLE_IMAGES_BY_NAME["Mediterraneo naturale"],
+  STYLE_IMAGES_BY_NAME["Minimal sofisticato"]
+ ];
+ HOUSE_IMAGES=[
+  HOUSE_IMAGES_BY_TYPE["Appartamento"],
+  HOUSE_IMAGES_BY_TYPE["Attico / superattico"],
+  HOUSE_IMAGES_BY_TYPE["Villa indipendente"],
+  HOUSE_IMAGES_BY_TYPE["Villetta a schiera"],
+  HOUSE_IMAGES_BY_TYPE["Casa bifamiliare"],
+  HOUSE_IMAGES_BY_TYPE["Loft"],
+  HOUSE_IMAGES_BY_TYPE["Nuova costruzione"],
+  HOUSE_IMAGES_BY_TYPE["Da ristrutturare"]
+ ];
+}
+
+refreshSessionImages();
+function goHome(){document.getElementById("home").style.display="block";document.getElementById("wizardView").style.display="none";document.getElementById("resultsView").style.display="none";document.getElementById("clientArea")&&(document.getElementById("clientArea").style.display="none");document.getElementById("staffArea")&&(document.getElementById("staffArea").style.display="none");window.scrollTo(0,0)}
+function startWizard(){document.getElementById("clientArea")&&(document.getElementById("clientArea").style.display="none");document.getElementById("staffArea")&&(document.getElementById("staffArea").style.display="none");refreshSessionImages();step=1;data={zone:{main:"",km:null},budget:{ideal:null,max:null,flex:null},spaces:{sqm:null,beds:null,baths:null},must:[],timing:null,houseTypes:[],purchase:[],style:null};document.getElementById("home").style.display="none";document.getElementById("resultsView").style.display="none";document.getElementById("wizardView").style.display="block";render()}
+function esc(s){return String(s??"").replaceAll("&","&amp;").replaceAll('"',"&quot;")}
+function renderSteps(){document.getElementById("steps").innerHTML=stepsNames.map((s,i)=>`<div class="step ${i+1<step?"done":i+1===step?"current":""}"><i>${i+1<step?"✓":i+1}</i>${s}</div>`).join("")}
+function choice(lbl,sel,fn,desc=""){return `<button class="choice ${sel?"selected":""}" onclick="${fn}"><b>${lbl}</b>${desc?`<small>${desc}</small>`:""}</button>`}
+function summaryRows(){
+ return [["Zona",data.zone.main?`${data.zone.main} · ${data.zone.km} km`:"Da definire"],
+ ["Budget",data.budget.ideal&&data.budget.max?`€${Number(data.budget.ideal).toLocaleString("it-IT")} – €${Number(data.budget.max).toLocaleString("it-IT")} · flex ${data.budget.flex}%`:"Da definire"],
+ ["Spazi",data.spaces.sqm?`${data.spaces.sqm} m² · ${data.spaces.beds} camere · ${data.spaces.baths} bagni`:"Da definire"],
+ ["Indispensabili",data.must.join(", ")||"Da definire"],["Tempi",data.timing||"Da definire"],["Tipo casa",data.houseTypes.join(" + ")||"Da definire"],["Acquisto",data.purchase.join(" + ")||"Da definire"],["Stile",data.style||"Da definire"]];
+}
+function renderSummary(){document.getElementById("summary").innerHTML=summaryRows().map(r=>`<div class="sum"><b>${r[0]}</b><small>${r[1]}</small></div>`).join("")}
+function render(){
+ if(window.innerWidth<=700) window.scrollTo({top:0,behavior:"instant"});
+ renderSteps();renderSummary();document.getElementById("stepLabel").textContent=`Passo ${step} di 8`;document.getElementById("error").style.display="none";
+ let h="";
+ if(step===1){
+   h=`<h2>Dove vuoi vivere?</h2><div class="search-zone-box"><h3>Ricerca su Roma e provincia</h3><p class="lead">Scrivi quartiere, comune o zona preferita. Il campo è stato allargato per rendere la ricerca più comoda da PC.</p>
+   <div class="field"><label>Zona principale *</label><input id="zoneInput" value="${esc(data.zone.main)}" placeholder="Es. Roma Nord, Eur, Frascati, Fiumicino..."></div>
+   <div class="zone-presets">${["Roma Centro","Roma Nord","Roma Sud","Roma Est","Roma Ovest","Castelli Romani","Fiumicino","Pomezia"].map(z=>`<button class="preset" onclick="setZone('${z}')">${z}</button>`).join("")}</div></div>
+   <h3>Quanto possiamo allargarci?</h3><div class="choice-grid">${[5,10,20,30,40,50].map(k=>choice(k+" km",data.zone.km===k,`setKm(${k})`)).join("")}</div>`;
+ }
+ if(step===2)h=`<h2>Quanto vuoi investire?</h2><p>I valori inseriti restano visibili quando scegli la flessibilità.</p><div class="field"><label>Budget ideale *</label><input id="ideal" type="number" value="${data.budget.ideal??""}" placeholder="Es. 200000"></div><div class="field"><label>Budget massimo *</label><input id="max" type="number" value="${data.budget.max??""}" placeholder="Es. 230000"></div><h3>Flessibilità</h3><div class="choice-grid">${[0,5,10,15].map(k=>choice(k===0?"Nessuna":"Fino al "+k+"%",data.budget.flex===k,`setFlex(${k})`)).join("")}</div>`;
+ if(step===3)h=`<h2>Quali spazi ti servono?</h2><div class="field"><label>Metratura minima *</label><input id="sqm" type="number" value="${data.spaces.sqm??""}"></div><div class="field"><label>Camere *</label><input id="beds" type="number" value="${data.spaces.beds??""}"></div><div class="field"><label>Bagni *</label><input id="baths" type="number" value="${data.spaces.baths??""}"></div>`;
+ if(step===4){let a=["Luminosità","Terrazzo / esterno","Ascensore","Posto auto","Silenzio","Studio","Cucina abitabile","Ripostiglio"];h=`<h2>Cosa non può mancare?</h2><div class="choice-grid multi">${a.map(v=>choice(v,data.must.includes(v),`toggleMust('${v.replaceAll("'","\\'")}')`)).join("")}</div>`}
+ if(step===5){let a=["Entro 3 mesi","3-6 mesi","6-12 mesi","12-18 mesi","Oltre 18 mesi","Flessibile"];h=`<h2>Quando vorresti entrare?</h2><div class="choice-grid">${a.map(v=>choice(v,data.timing===v,`setTiming('${v}')`)).join("")}</div>`}
+ if(step===6){
+   let types=[
+    ["Appartamento","La soluzione più flessibile in città"],
+    ["Attico / superattico","Piano alto, luce e spazi esterni"],
+    ["Villa indipendente","Privacy e autonomia"],
+    ["Villetta a schiera","Casa indipendente con costi più controllati"],
+    ["Casa bifamiliare","Indipendenza con struttura condivisa"],
+    ["Loft","Spazi aperti e carattere contemporaneo"],
+    ["Nuova costruzione","Immobile recente o da realizzare"],
+    ["Da ristrutturare","Massima libertà di trasformazione"]
+   ];
+   let purchase=["Chiavi in mano","Da ristrutturare","Nuova costruzione","Capitale proprio","Mutuo + supporto","Aperto a più soluzioni"];
+   h=`<h2>Che tipo di casa vuoi considerare?</h2><p>Puoi scegliere <strong>una, più opzioni oppure tutte</strong>. Sul telefono basta toccare le card.</p>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px">
+     <button class="secondary" onclick="selectAllHouseTypes()">Scegli tutti i tipi</button>
+     <button class="secondary" onclick="clearHouseTypes()">Azzera scelta</button>
+   </div>
+   <div class="style-grid">${types.map((v,i)=>`<button class="style-card ${data.houseTypes.includes(v[0])?"selected":""}" onclick="toggleHouseType('${v[0].replaceAll("'","\'")}')"><img src="${HOUSE_IMAGES_BY_TYPE[v[0]]}" alt="${v[0]}"><p>${v[0]}</p><small style="display:block;padding:0 12px 12px;color:var(--muted)">${v[1]}</small></button>`).join("")}</div>
+   <h3 style="margin-top:28px">Modalità di acquisto</h3><p>Puoi selezionare più opzioni.</p>
+   <div class="choice-grid">${purchase.map(v=>choice(v,data.purchase.includes(v),`togglePurchase('${v.replaceAll("'","\'")}')`)).join("")}</div>`
+ }
+ if(step===7){let names=["Moderno essenziale","Scandinavo caldo","Industrial urbano","Classico contemporaneo","Mediterraneo naturale","Minimal sofisticato"];h=`<h2>Che stile immagini?</h2><p>Sei atmosfere realmente diverse, non lo stesso soggiorno ripetuto.</p><div class="style-grid">${names.map((n,i)=>`<button class="style-card ${data.style===n?"selected":""}" onclick="setStyle('${n}')"><img src="${STYLE_IMAGES_BY_NAME[n]}" alt="${n}"><p>${n}</p></button>`).join("")}</div>`}
+ if(step===8)h=`<h2>Riepilogo</h2>${summaryRows().map(r=>`<div class="sum"><b>${r[0]}</b><small>${r[1]}</small></div>`).join("")}<div class="field"><label>Nome e cognome *</label><input id="name"></div><div class="field"><label>Email *</label><input id="email" type="email"></div><div class="field"><label>Telefono / WhatsApp *</label><input id="phone"></div><label><input id="privacy" type="checkbox"> Accetto la privacy *</label>`;
+ document.getElementById("question").innerHTML=h;
+ document.getElementById("sideImg").src=STYLE_IMAGES[Math.min(step-1,5)]||STYLE_IMAGES_BY_NAME["Moderno essenziale"];
+}
+function persist(){
+ if(step===1){let z=document.getElementById("zoneInput");if(z)data.zone.main=z.value.trim()}
+ if(step===2){let i=document.getElementById("ideal"),m=document.getElementById("max");if(i&&i.value!=="")data.budget.ideal=Number(i.value);if(m&&m.value!=="")data.budget.max=Number(m.value)}
+ if(step===3){["sqm","beds","baths"].forEach(id=>{let e=document.getElementById(id);if(e&&e.value!=="")data.spaces[id]=Number(e.value)})}
+}
+function err(t){let e=document.getElementById("error");e.textContent=t;e.style.display="block";return false}
+function validate(){persist();if(step===1&&(!data.zone.main||!data.zone.km))return err("Indica zona e distanza.");if(step===2&&(!data.budget.ideal||!data.budget.max||data.budget.flex===null))return err("Completa budget e flessibilità.");if(step===2&&data.budget.max<data.budget.ideal)return err("Il budget massimo non può essere inferiore al budget ideale.");if(step===3&&(!data.spaces.sqm||!data.spaces.beds||!data.spaces.baths))return err("Completa gli spazi.");if(step===4&&!data.must.length)return err("Scegli almeno un indispensabile.");if(step===5&&!data.timing)return err("Scegli una tempistica.");if(step===6&&!data.houseTypes.length)return err("Scegli almeno un tipo di casa oppure usa “Scegli tutti i tipi”.");if(step===6&&!data.purchase.length)return err("Scegli almeno una modalità di acquisto.");if(step===7&&!data.style)return err("Scegli uno stile.");return true}
+function setZone(z){data.zone.main=z;render()}
+function setKm(k){persist();data.zone.km=k;render()}
+function setFlex(k){persist();data.budget.flex=k;render()} // FIX: salva i prezzi PRIMA di ridisegnare
+function toggleMust(v){persist();data.must=data.must.includes(v)?data.must.filter(x=>x!==v):[...data.must,v];render()}
+function setTiming(v){persist();data.timing=v;render()}
+function toggleHouseType(v){persist();data.houseTypes=data.houseTypes.includes(v)?data.houseTypes.filter(x=>x!==v):[...data.houseTypes,v];render()}
+function selectAllHouseTypes(){persist();data.houseTypes=["Appartamento","Attico / superattico","Villa indipendente","Villetta a schiera","Casa bifamiliare","Loft","Nuova costruzione","Da ristrutturare"];render()}
+function clearHouseTypes(){persist();data.houseTypes=[];render()}
+function togglePurchase(v){persist();data.purchase=data.purchase.includes(v)?data.purchase.filter(x=>x!==v):[...data.purchase,v];render()}
+function setStyle(v){persist();data.style=v;render()}
+function back(){persist();if(step>1){step--;render()}else goHome()}
+function next(){if(step<8){if(!validate())return;step++;render();return}let n=document.getElementById("name").value.trim(),e=document.getElementById("email").value.trim(),p=document.getElementById("phone").value.trim(),pr=document.getElementById("privacy").checked;if(!n||!e||!p||!pr)return err("Nome, email, WhatsApp e privacy sono obbligatori.");showResults(n)}
+function showResults(name){document.getElementById("wizardView").style.display="none";document.getElementById("resultsView").style.display="block";window.scrollTo(0,0);let arr=[["Priorità Zona","t1",STYLE_IMAGES_BY_NAME["Scandinavo caldo"],"Protegge soprattutto la zona."],["Priorità Casa","t2",STYLE_IMAGES_BY_NAME["Classico contemporaneo"],"Protegge spazi e caratteristiche."],["Miglior Equilibrio","t3",STYLE_IMAGES_BY_NAME["Mediterraneo naturale"],"Bilancia zona, budget e casa."]];document.getElementById("results").innerHTML=arr.map((x,i)=>`<article class="result"><img src="${x[2]}"><div class="result-body"><span class="tag ${x[1]}">${x[0]}</span><h3>${x[0]}</h3><p>${x[3]}</p><button class="primary" onclick="choose('${x[0]}','${name.replaceAll("'","\\'")}')">Scelgo questa strategia</button></div></article>`).join("")}
+function choose(strategy,name){
+ document.getElementById("strategyMsg").innerHTML=`
+ <div class="success" style="padding:24px;margin-top:24px">
+   <span class="eyebrow">LA TUA RICERCA È PARTITA</span>
+   <h2 style="margin:8px 0 10px;font-size:30px">Ottima scelta, ${name}.</h2>
+   <p style="font-size:17px;line-height:1.55;margin:0 0 10px">
+     Hai scelto <strong>${strategy}</strong>. È un passo importante: da questo momento APLSAI userà le tue preferenze per cercare una soluzione realmente adatta a te.
+   </p>
+   <p style="font-size:16px;line-height:1.55">
+     Il nostro obiettivo non è mandarti tante case, ma trovare <strong>la soluzione giusta</strong> — anche quando significa individuare una casa che oggi non è perfetta ma può diventare la tua <strong>Casa Possibile</strong>.
+   </p>
+   <p style="font-size:16px;line-height:1.55">
+     <strong>A presto.</strong> Ti contatteremo tramite WhatsApp o email per aggiornarti sulla ricerca e, appena avremo una soluzione interessante, te la presenteremo spiegandoti perché pensiamo possa funzionare per te.
+   </p>
+   <div style="margin-top:18px;padding:14px;border-radius:9px;background:#fff;border:1px solid #dfe3da">
+     <b>Nel frattempo non devi fare altro.</b><br>
+     <span style="color:var(--muted)">La tua richiesta rimane attiva con APLSAI HOME.</span>
+   </div>
+ </div>`;
+ document.getElementById("strategyMsg").scrollIntoView({behavior:"smooth",block:"center"});
+}
+
+function hideMainViews(){
+ document.getElementById("home").style.display="none";
+ document.getElementById("wizardView").style.display="none";
+ document.getElementById("resultsView").style.display="none";
+ document.getElementById("clientArea").style.display="none";
+ document.getElementById("staffArea").style.display="none";
+}
+const store=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+const loadStore=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))||f}catch{return f}};
+function toggleMobileMenu(force){
+ const m=document.getElementById("mobileMenu");
+ const show=typeof force==="boolean"?force:m.style.display==="none";
+ m.style.display=show?"block":"none";
+}
+function showClientArea(){hideMainViews();document.getElementById("clientArea").style.display="block";window.scrollTo(0,0);renderClientArea()}
+function showStaffArea(){hideMainViews();document.getElementById("staffArea").style.display="block";window.scrollTo(0,0);renderStaffArea()}
+
+function saveClientProfile(name,email,phone,strategy){
+ let arr=loadStore("aplsai_profiles",[]);
+ let existing=arr.find(x=>x.email.toLowerCase()===email.toLowerCase());
+ const now=new Date().toISOString();
+ const profile={id:existing?.id||("CLI-"+Date.now()),name,email,phone,createdAt:existing?.createdAt||now,status:existing?.status||"Ricerca attiva",preferredStrategy:strategy||existing?.preferredStrategy||null,proposalCount:existing?.proposalCount||0,lastProposalAt:existing?.lastProposalAt||null,updates:existing?.updates||[],...JSON.parse(JSON.stringify(data))};
+ profile.updates.push({at:now,text:strategy?`Strategia scelta: ${strategy}.`:"Profilo aggiornato."});
+ if(existing) arr[arr.indexOf(existing)]=profile; else arr.push(profile);
+ store("aplsai_profiles",arr);store("aplsai_current_profile",profile);
+ return profile;
+}
+
+let loggedClientId=null;
+function clientLogin(){
+ const e=document.getElementById("clientEmail").value.trim().toLowerCase();
+ const p=loadStore("aplsai_profiles",[]).find(x=>x.email.toLowerCase()===e);
+ if(!p){alert("Profilo non trovato in questo browser.");return}
+ loggedClientId=p.id;store("aplsai_client_session",{id:p.id});showClientDashboard(p)
+}
+function renderClientArea(){
+ const sess=loadStore("aplsai_client_session",null);
+ if(sess){
+  const p=loadStore("aplsai_profiles",[]).find(x=>x.id===sess.id);
+  if(p){loggedClientId=p.id;showClientDashboard(p);return}
+ }
+ document.getElementById("clientLoginBox").style.display="grid";document.getElementById("clientDashboard").style.display="none";
+}
+function profileSummary(p){return [["Zona",`${p.zone.main} · ${p.zone.km} km`],["Budget",`€${Number(p.budget.ideal).toLocaleString("it-IT")} – €${Number(p.budget.max).toLocaleString("it-IT")}`],["Spazi",`${p.spaces.sqm} m² · ${p.spaces.beds} camere · ${p.spaces.baths} bagni`],["Tipo casa",(p.houseTypes||[]).join(" + ")],["Strategia",p.preferredStrategy||"Da scegliere"]]}
+function showClientDashboard(p){
+ document.getElementById("clientLoginBox").style.display="none";document.getElementById("clientDashboard").style.display="block";
+ document.getElementById("cStatus").textContent=p.status;document.getElementById("cDays").textContent=Math.floor((Date.now()-new Date(p.createdAt))/86400000);document.getElementById("cStrategy").textContent=p.preferredStrategy||"—";document.getElementById("cProposals").textContent=p.proposalCount||0;
+ document.getElementById("clientProfile").innerHTML=profileSummary(p).map(r=>`<div class="sum"><b>${r[0]}</b><small>${r[1]}</small></div>`).join("");
+ document.getElementById("clientUpdates").innerHTML=(p.updates||[]).slice().reverse().map(u=>`<div class="list-row"><b>${new Date(u.at).toLocaleDateString("it-IT")}</b><br>${u.text}</div>`).join("");
+}
+function editCurrentProfile(){const p=loadStore("aplsai_profiles",[]).find(x=>x.id===loggedClientId);if(!p)return;data=JSON.parse(JSON.stringify({zone:p.zone,budget:p.budget,spaces:p.spaces,must:p.must,timing:p.timing,houseTypes:p.houseTypes||[],purchase:p.purchase,style:p.style}));step=1;hideMainViews();document.getElementById("wizardView").style.display="block";render()}
+function togglePause(){let arr=loadStore("aplsai_profiles",[]),i=arr.findIndex(x=>x.id===loggedClientId);if(i<0)return;arr[i].status=arr[i].status==="In pausa"?"Ricerca attiva":"In pausa";arr[i].updates.push({at:new Date().toISOString(),text:`Ricerca ${arr[i].status==="In pausa"?"messa in pausa":"riattivata"}.`});store("aplsai_profiles",arr);showClientDashboard(arr[i])}
+function clientLogout(){localStorage.removeItem("aplsai_client_session");loggedClientId=null;renderClientArea()}
+
+function staffLogin(){
+ if(!document.getElementById("staffEmail").value.trim()||!document.getElementById("staffPassword").value){alert("Inserisci email e password.");return}
+ store("aplsai_staff_session",{ok:true});document.getElementById("staffLoginBox").style.display="none";document.getElementById("staffDashboard").style.display="block";renderStaff();
+}
+function renderStaffArea(){if(loadStore("aplsai_staff_session",null)){document.getElementById("staffLoginBox").style.display="none";document.getElementById("staffDashboard").style.display="block";renderStaff()}else{document.getElementById("staffLoginBox").style.display="grid";document.getElementById("staffDashboard").style.display="none"}}
+function staffLogout(){localStorage.removeItem("aplsai_staff_session");renderStaffArea()}
+function staffTab(id,b){document.querySelectorAll(".staff-tab").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".staff-panel").forEach(x=>x.style.display="none");b.classList.add("active");document.getElementById("staff-"+id).style.display="block"}
+function clientPriority(p){let age=Math.floor((Date.now()-new Date(p.createdAt))/86400000);let v=70+(p.preferredStrategy?8:0)+Math.min(age,120)/12;return Math.min(100,Math.round(v))}
+function renderStaff(){
+ const clients=loadStore("aplsai_profiles",[]),props=loadStore("aplsai_properties",[]),deals=loadStore("aplsai_deals",[]);
+ document.getElementById("sClients").textContent=clients.length;document.getElementById("sFollow").textContent=clients.filter(p=>clientPriority(p)>=85).length;document.getElementById("sProperties").textContent=props.length;document.getElementById("sDeals").textContent=deals.length;
+ document.getElementById("todayGrid").innerHTML=`<article class="area-card"><h3>Clienti da seguire</h3>${clients.filter(p=>clientPriority(p)>=85).map(p=>`<div class="list-row"><b>${p.name}</b><span class="score">${clientPriority(p)}</span><br>${p.zone.main}</div>`).join("")||"<p>Nessuno.</p>"}</article><article class="area-card"><h3>Nuove opportunità</h3>${props.slice(-5).map(p=>`<div class="list-row"><b>${p.ref}</b><br>${p.zone}</div>`).join("")||"<p>Nessuna.</p>"}</article>`;
+ document.getElementById("staffClientList").innerHTML=clients.map(p=>`<div class="list-row"><b>${p.name}</b><span class="score">${clientPriority(p)}</span><br>${p.zone.main}<br><button class="secondary" onclick="openStaffClient('${p.id}')">Apri</button></div>`).join("")||"<p>Nessun cliente.</p>";
+ document.getElementById("propertyList").innerHTML=props.map(p=>`<div class="list-row"><b>${p.ref}</b><br>${p.zone} · €${Number(p.price).toLocaleString("it-IT")} · ${p.sqm} m²</div>`).join("")||"<p>Nessun immobile.</p>";
+ document.getElementById("matchClient").innerHTML=clients.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");document.getElementById("matchProperty").innerHTML=props.map(p=>`<option value="${p.id}">${p.ref} · ${p.zone}</option>`).join("");
+ document.getElementById("dealList").innerHTML=deals.map(d=>`<div class="list-row"><b>${d.ref}</b><br>${clients.find(p=>p.id===d.clientId)?.name||"—"} · ${d.stage}</div>`).join("")||"<p>Nessuna trattativa.</p>";
+}
+function openStaffClient(id){const p=loadStore("aplsai_profiles",[]).find(x=>x.id===id);if(!p)return;document.getElementById("staffClientDetail").innerHTML=`<b>${p.name}</b><br>${p.email}<br>${p.phone}<div class="sum"><b>Strategia</b>${p.preferredStrategy||"—"}</div><div class="sum"><b>Priorità</b>${clientPriority(p)}/100</div>`}
+function saveProperty(){
+ let ref=document.getElementById("propRef").value.trim(),zone=document.getElementById("propZone").value.trim(),price=Number(document.getElementById("propPrice").value),sqm=Number(document.getElementById("propSqm").value);
+ if(!ref||!zone||!price||!sqm){alert("Completa riferimento, zona, prezzo e metratura.");return}
+ let a=loadStore("aplsai_properties",[]);a.push({id:"PROP-"+Date.now(),ref,zone,price,sqm,beds:Number(document.getElementById("propBeds").value)||0,baths:Number(document.getElementById("propBaths").value)||0,state:document.getElementById("propState").value});store("aplsai_properties",a);renderStaff()
+}
+function localMatch(p,prop){let s=0,reason=[];if(prop.price<=p.budget.max){s+=30;reason.push("budget ok")}else if(prop.price<=p.budget.max*(1+(p.budget.flex||0)/100)){s+=22;reason.push("budget con flessibilità")}if(prop.zone.toLowerCase().includes(p.zone.main.toLowerCase())||p.zone.main.toLowerCase().includes(prop.zone.toLowerCase())){s+=25;reason.push("zona coerente")}else{s+=10;reason.push("zona da verificare")}if(prop.sqm>=p.spaces.sqm){s+=20;reason.push("metratura ok")}if(prop.beds>=p.spaces.beds)s+=10;if(prop.baths>=p.spaces.baths)s+=5;if((p.purchase||[]).includes(prop.state))s+=10;return {score:Math.min(100,s),reason:reason.join(", ")}}
+function runClientMatch(){let clients=loadStore("aplsai_profiles",[]),props=loadStore("aplsai_properties",[]),p=clients.find(x=>x.id===document.getElementById("matchClient").value);if(!p)return;let rows=props.map(prop=>({prop,...localMatch(p,prop)})).sort((a,b)=>b.score-a.score);document.getElementById("clientMatchResults").innerHTML=rows.map((r,i)=>`<div class="list-row ${i===0?"best":""}"><span class="score">${r.score}</span><b>${r.prop.ref}</b><br>${r.prop.zone}<br><small>${r.reason}</small><br><button class="primary" onclick="makeProposal('${p.id}','${r.prop.id}','${r.prop.ref}')">Proponi</button></div>`).join("")}
+function runPropertyMatch(){let clients=loadStore("aplsai_profiles",[]),props=loadStore("aplsai_properties",[]),prop=props.find(x=>x.id===document.getElementById("matchProperty").value);if(!prop)return;let rows=clients.map(p=>({p,...localMatch(p,prop)})).sort((a,b)=>b.score-a.score);document.getElementById("propertyMatchResults").innerHTML=rows.map((r,i)=>`<div class="list-row ${i===0?"best":""}"><span class="score">${r.score}</span><b>${r.p.name}</b><br>${r.p.zone.main}<br><small>${r.reason}</small><br><button class="primary" onclick="makeProposal('${r.p.id}','${prop.id}','${prop.ref}')">Proponi</button></div>`).join("")}
+function makeProposal(clientId,propertyId,ref){let clients=loadStore("aplsai_profiles",[]),i=clients.findIndex(x=>x.id===clientId),now=new Date().toISOString();if(i<0)return;clients[i].proposalCount=(clients[i].proposalCount||0)+1;clients[i].lastProposalAt=now;clients[i].updates.push({at:now,text:`Nuova opportunità proposta: ${ref}.`});store("aplsai_profiles",clients);let deals=loadStore("aplsai_deals",[]);deals.push({id:"DEAL-"+Date.now(),clientId,propertyId,ref,stage:"Proposta",updatedAt:now});store("aplsai_deals",deals);renderStaff();alert("Proposta registrata.")}
+
+const originalChoose=choose;
+choose=function(strategy,name){
+ originalChoose(strategy,name);
+ let email=document.getElementById("email")?.value?.trim()||"";
+ let phone=document.getElementById("phone")?.value?.trim()||"";
+ if(email&&phone){saveClientProfile(name,email,phone,strategy)}
+}
+
+
+function ensureOpsStores(){
+ if(!localStorage.getItem("aplsai_referrals")) store("aplsai_referrals",[]);
+ if(!localStorage.getItem("aplsai_documents")) store("aplsai_documents",[]);
+}
+ensureOpsStores();
+
+function createReferral(){
+ const email=(document.getElementById("friendEmail")?.value||"").trim().toLowerCase();
+ if(!email){alert("Inserisci l'email dell'amico.");return}
+ const clients=loadStore("aplsai_profiles",[]);
+ const me=clients.find(x=>x.id===loggedClientId);
+ if(!me)return;
+ let refs=loadStore("aplsai_referrals",[]);
+ if(refs.some(r=>r.ownerId===me.id&&r.friendEmail===email)){alert("Invito già registrato.");return}
+ const code="APL-"+Math.random().toString(36).slice(2,8).toUpperCase();
+ refs.push({id:"REF-"+Date.now(),ownerId:me.id,ownerName:me.name,friendEmail:email,code,status:"Invitato",reward:"Da definire",createdAt:new Date().toISOString()});
+ store("aplsai_referrals",refs);document.getElementById("friendEmail").value="";renderMyReferrals();
+}
+function renderMyReferrals(){
+ const refs=loadStore("aplsai_referrals",[]).filter(r=>r.ownerId===loggedClientId);
+ const el=document.getElementById("myReferralList"); if(!el)return;
+ el.innerHTML=refs.map(r=>`<div class="list-row"><b>${r.friendEmail}</b><br><small>Codice ${r.code} · ${r.status}</small></div>`).join("")||"<p>Nessun invito registrato.</p>";
+}
+function renderClientDocuments(){
+ const docs=loadStore("aplsai_documents",[]).filter(d=>d.clientId===loggedClientId);
+ const el=document.getElementById("clientDocs");if(!el)return;
+ el.innerHTML=docs.map(d=>`<div class="list-row"><b>${d.title}</b><br>${d.url?`<a href="${d.url}" target="_blank">Apri documento</a>`:""}<br><small>${new Date(d.createdAt).toLocaleDateString("it-IT")}</small></div>`).join("")||'<div class="list-row">Nessun documento condiviso.</div>';
+}
+const oldShowClientDashboard=showClientDashboard;
+showClientDashboard=function(p){oldShowClientDashboard(p);renderMyReferrals();renderClientDocuments()}
+
+function shareDocument(){
+ const clientId=document.getElementById("docClient").value;
+ const title=document.getElementById("docTitle").value.trim();
+ const url=document.getElementById("docUrl").value.trim();
+ if(!clientId||!title){alert("Scegli il cliente e inserisci un titolo.");return}
+ let docs=loadStore("aplsai_documents",[]);
+ docs.push({id:"DOC-"+Date.now(),clientId,title,url,createdAt:new Date().toISOString()});
+ store("aplsai_documents",docs);document.getElementById("docTitle").value="";document.getElementById("docUrl").value="";renderStaff();
+}
+function renderStaffExtras(clients){
+ const refs=loadStore("aplsai_referrals",[]);
+ const docs=loadStore("aplsai_documents",[]);
+ const refEl=document.getElementById("staffReferralList");
+ if(refEl)refEl.innerHTML=refs.map(r=>`<div class="list-row"><b>${r.ownerName}</b><br>${r.friendEmail}<br><small>${r.code} · ${r.status}</small></div>`).join("")||"<p>Nessun referral.</p>";
+ const dc=document.getElementById("docClient");if(dc)dc.innerHTML=clients.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
+ const dl=document.getElementById("staffDocList");if(dl)dl.innerHTML=docs.map(d=>`<div class="list-row"><b>${d.title}</b><br>${clients.find(c=>c.id===d.clientId)?.name||"—"}<br><small>${new Date(d.createdAt).toLocaleDateString("it-IT")}</small></div>`).join("")||"<p>Nessun documento.</p>";
+}
+const oldRenderStaff=renderStaff;
+renderStaff=function(){oldRenderStaff();const clients=loadStore("aplsai_profiles",[]);renderStaffExtras(clients)}
+
+function operationalAlerts(){
+ const clients=loadStore("aplsai_profiles",[]);
+ const deals=loadStore("aplsai_deals",[]);
+ const now=Date.now();
+ return {
+  staleClients:clients.filter(p=>{const last=p.lastProposalAt||p.createdAt;return (now-new Date(last))/86400000>=30&&p.status==="Ricerca attiva"}).length,
+  staleDeals:deals.filter(d=>(now-new Date(d.updatedAt))/86400000>=7).length
+ }
+}
+const oldStaffLogin=staffLogin;
+staffLogin=function(){oldStaffLogin();setTimeout(()=>{const a=operationalAlerts();if(a.staleClients||a.staleDeals){const grid=document.getElementById("todayGrid");if(grid)grid.insertAdjacentHTML("afterbegin",`<article class="area-card"><h3>⚠ Azioni da non dimenticare</h3><p>${a.staleClients} clienti senza proposta da 30+ giorni.<br>${a.staleDeals} trattative senza aggiornamenti da 7+ giorni.</p></article>`) }},50)}
+
+</script>
+
+<script>
+async function api(path, options={}){
+  const res=await fetch(path,{
+    credentials:"include",
+    headers:{"Content-Type":"application/json",...(options.headers||{})},
+    ...options
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error||"Errore server");
+  return data;
+}
+
+let serverClient=null;
+
+(async()=>{
+  try{
+    const p=await api("/api/health");
+    const el=document.createElement("div");
+    el.textContent="APLSAI online · "+p.status;
+    el.style.cssText="position:fixed;right:10px;bottom:10px;z-index:999;background:#536b45;color:#fff;padding:7px 10px;border-radius:999px;font-size:10px;font-weight:800";
+    document.body.appendChild(el);
+  }catch{}
+})();
+
+const _render=render;
+render=function(){
+  _render();
+  if(step===8 && !document.getElementById("password")){
+    const phone=document.getElementById("phone");
+    if(phone){
+      const wrap=document.createElement("div");
+      wrap.className="field";
+      wrap.innerHTML='<label>Crea una password *</label><input id="password" type="password" minlength="8" placeholder="Almeno 8 caratteri">';
+      phone.closest(".field").insertAdjacentElement("afterend",wrap);
+    }
+  }
+};
+
+const _next=next;
+next=async function(){
+  if(step<8) return _next();
+  const name=document.getElementById("name").value.trim();
+  const email=document.getElementById("email").value.trim();
+  const phone=document.getElementById("phone").value.trim();
+  const password=(document.getElementById("password")?.value||"");
+  const privacy=document.getElementById("privacy").checked;
+
+  if(!name||!email||!phone||password.length<8||!privacy){
+    return err("Nome, email, WhatsApp, password di almeno 8 caratteri e privacy sono obbligatori.");
+  }
+
+  try{
+    const r=await api("/api/register",{
+      method:"POST",
+      body:JSON.stringify({name,email,phone,password,profile:data})
+    });
+    serverClient=r.client;
+    showResults(name);
+  }catch(e){ err(e.message); }
+};
+
+const _choose=choose;
+choose=async function(strategy,name){
+  try{
+    const r=await api("/api/client/strategy",{
+      method:"POST",
+      body:JSON.stringify({strategy})
+    });
+    serverClient=r.client;
+    _choose(strategy,name);
+  }catch(e){ alert(e.message); }
+};
+
+clientLogin=async function(){
+  try{
+    const r=await api("/api/client/login",{
+      method:"POST",
+      body:JSON.stringify({
+        email:document.getElementById("clientEmail").value.trim(),
+        password:document.getElementById("clientPassword").value
+      })
+    });
+    serverClient=r.client;
+    showClientServer(r.client);
+  }catch(e){ alert(e.message); }
+};
+
+renderClientArea=async function(){
+  try{
+    const r=await api("/api/client/me");
+    serverClient=r.client;
+    showClientServer(r.client);
+  }catch{
+    document.getElementById("clientLoginBox").style.display="grid";
+    document.getElementById("clientDashboard").style.display="none";
+  }
+};
+
+function showClientServer(p){
+  loggedClientId=p.id;
+  document.getElementById("clientLoginBox").style.display="none";
+  document.getElementById("clientDashboard").style.display="block";
+  document.getElementById("cStatus").textContent=p.status;
+  document.getElementById("cDays").textContent=p.days_aplsai||0;
+  document.getElementById("cStrategy").textContent=p.preferred_strategy||"—";
+  document.getElementById("cProposals").textContent=p.proposal_count||0;
+
+  const rows=[
+    ["Zona",`${p.zone.main} · ${p.zone.km} km`],
+    ["Budget",`€${Number(p.budget.ideal).toLocaleString("it-IT")} – €${Number(p.budget.max).toLocaleString("it-IT")}`],
+    ["Spazi",`${p.spaces.sqm} m² · ${p.spaces.beds} camere · ${p.spaces.baths} bagni`],
+    ["Tipo casa",(p.houseTypes||[]).join(" + ")||"—"],
+    ["Strategia",p.preferred_strategy||"Da scegliere"]
+  ];
+  document.getElementById("clientProfile").innerHTML=rows.map(x=>`<div class="sum"><b>${x[0]}</b><small>${x[1]}</small></div>`).join("");
+  document.getElementById("clientUpdates").innerHTML=(p.updates||[]).map(u=>`<div class="list-row"><b>${new Date(u.created_at).toLocaleDateString("it-IT")}</b><br>${u.message}</div>`).join("")||"<p>Nessun aggiornamento.</p>";
+
+  const docs=document.getElementById("clientDocs");
+  if(docs) docs.innerHTML=(p.documents||[]).map(d=>`<div class="list-row"><b>${d.title}</b><br>${d.url?`<a href="${d.url}" target="_blank" rel="noopener">Apri documento</a>`:""}</div>`).join("")||'<div class="list-row">Nessun documento condiviso.</div>';
+
+  const refs=document.getElementById("myReferralList");
+  if(refs) refs.innerHTML=(p.referrals||[]).map(r=>`<div class="list-row"><b>${r.friend_email}</b><br><small>${r.code} · ${r.status}</small></div>`).join("")||"<p>Nessun invito registrato.</p>";
+}
+
+togglePause=async function(){
+  try{
+    const r=await api("/api/client/toggle-pause",{method:"POST",body:"{}"});
+    serverClient=r.client;
+    showClientServer(serverClient);
+  }catch(e){ alert(e.message); }
+};
+
+clientLogout=async function(){
+  await api("/api/logout",{method:"POST",body:"{}"});
+  serverClient=null;
+  renderClientArea();
+};
+
+createReferral=async function(){
+  const friend=(document.getElementById("friendEmail")?.value||"").trim();
+  if(!friend) return alert("Inserisci l'email dell'amico.");
+  try{
+    const r=await api("/api/client/referrals",{
+      method:"POST",
+      body:JSON.stringify({friend_email:friend})
+    });
+    document.getElementById("friendEmail").value="";
+    serverClient=r.client;
+    showClientServer(serverClient);
+  }catch(e){ alert(e.message); }
+};
+
+staffLogin=async function(){
+  try{
+    await api("/api/staff/login",{
+      method:"POST",
+      body:JSON.stringify({
+        email:document.getElementById("staffEmail").value.trim(),
+        password:document.getElementById("staffPassword").value
+      })
+    });
+    document.getElementById("staffLoginBox").style.display="none";
+    document.getElementById("staffDashboard").style.display="block";
+    await renderStaffServer();
+  }catch(e){ alert(e.message); }
+};
+
+renderStaffArea=async function(){
+  try{
+    await renderStaffServer();
+    document.getElementById("staffLoginBox").style.display="none";
+    document.getElementById("staffDashboard").style.display="block";
+  }catch{
+    document.getElementById("staffLoginBox").style.display="grid";
+    document.getElementById("staffDashboard").style.display="none";
+  }
+};
+
+staffLogout=async function(){
+  await api("/api/logout",{method:"POST",body:"{}"});
+  document.getElementById("staffDashboard").style.display="none";
+  document.getElementById("staffLoginBox").style.display="grid";
+};
+
+async function renderStaffServer(){
+  const d=await api("/api/staff/dashboard");
+  window.__staffServer=d;
+  const clients=d.clients||[], props=d.properties||[], deals=d.deals||[];
+
+  document.getElementById("sClients").textContent=clients.length;
+  document.getElementById("sFollow").textContent=clients.filter(p=>p.status==="Ricerca attiva"&&(p.days_aplsai||0)>=30).length;
+  document.getElementById("sProperties").textContent=props.length;
+  document.getElementById("sDeals").textContent=deals.length;
+
+  document.getElementById("todayGrid").innerHTML=
+    `<article class="area-card"><h3>Clienti da seguire</h3>${
+      clients.filter(p=>p.status==="Ricerca attiva"&&(p.days_aplsai||0)>=30)
+      .map(p=>`<div class="list-row"><b>${p.name}</b><br>${p.zone.main}</div>`).join("")||"<p>Nessuno.</p>"
+    }</article>
+    <article class="area-card"><h3>Nuove opportunità</h3>${
+      props.slice(0,5).map(p=>`<div class="list-row"><b>${p.ref}</b><br>${p.zone}</div>`).join("")||"<p>Nessuna.</p>"
+    }</article>`;
+
+  document.getElementById("staffClientList").innerHTML=
+    clients.map(p=>`<div class="list-row"><b>${p.name}</b><br>${p.zone.main}<br><button class="secondary" onclick="openServerClient('${p.id}')">Apri</button></div>`).join("")||"<p>Nessun cliente.</p>";
+
+  document.getElementById("propertyList").innerHTML=
+    props.map(p=>`<div class="list-row"><b>${p.ref}</b><br>${p.zone} · €${Number(p.price).toLocaleString("it-IT")} · ${p.sqm} m²</div>`).join("")||"<p>Nessun immobile.</p>";
+
+  document.getElementById("matchClient").innerHTML=clients.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
+  document.getElementById("matchProperty").innerHTML=props.map(p=>`<option value="${p.id}">${p.ref} · ${p.zone}</option>`).join("");
+  document.getElementById("dealList").innerHTML=deals.map(d=>`<div class="list-row"><b>${d.ref}</b><br>${clients.find(c=>c.id===d.client_id)?.name||"—"} · ${d.stage}</div>`).join("")||"<p>Nessuna trattativa.</p>";
+
+  const dc=document.getElementById("docClient");
+  if(dc) dc.innerHTML=clients.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
+
+  const dl=document.getElementById("staffDocList");
+  if(dl) dl.innerHTML=(d.documents||[]).map(x=>`<div class="list-row"><b>${x.title}</b><br>${clients.find(c=>c.id===x.client_id)?.name||"—"}</div>`).join("")||"<p>Nessun documento.</p>";
+
+  const rl=document.getElementById("staffReferralList");
+  if(rl) rl.innerHTML=(d.referrals||[]).map(x=>`<div class="list-row"><b>${x.friend_email}</b><br>${x.code} · ${x.status}</div>`).join("")||"<p>Nessun referral.</p>";
+}
+
+window.openServerClient=function(id){
+  const p=(window.__staffServer?.clients||[]).find(x=>x.id===id);
+  if(!p)return;
+  document.getElementById("staffClientDetail").innerHTML=
+    `<b>${p.name}</b><br>${p.email}<br>${p.phone}
+     <div class="sum"><b>Strategia</b>${p.preferred_strategy||"—"}</div>
+     <div class="sum"><b>Stato</b>${p.status}</div>`;
+};
+
+saveProperty=async function(){
+  const payload={
+    ref:document.getElementById("propRef").value.trim(),
+    zone:document.getElementById("propZone").value.trim(),
+    price:Number(document.getElementById("propPrice").value),
+    sqm:Number(document.getElementById("propSqm").value),
+    beds:Number(document.getElementById("propBeds").value)||0,
+    baths:Number(document.getElementById("propBaths").value)||0,
+    state:document.getElementById("propState").value,
+    source:"Staff"
+  };
+  try{
+    await api("/api/staff/properties",{method:"POST",body:JSON.stringify(payload)});
+    await renderStaffServer();
+  }catch(e){ alert(e.message); }
+};
+
+runClientMatch=async function(){
+  const id=document.getElementById("matchClient").value;
+  if(!id)return;
+  try{
+    const d=await api("/api/staff/match/client/"+encodeURIComponent(id));
+    document.getElementById("clientMatchResults").innerHTML=d.results.map((r,i)=>
+      `<div class="list-row ${i===0?"best":""}">
+       <span class="score">${r.score}</span><b>${r.property.ref}</b><br>${r.property.zone}<br>
+       <small>${r.reason}</small><br>
+       <button class="primary" onclick="makeProposalServer('${d.client.id}','${r.property.id}','${r.property.ref}')">Proponi</button>
+       </div>`).join("")||"<p>Nessun immobile.</p>";
+  }catch(e){alert(e.message);}
+};
+
+runPropertyMatch=async function(){
+  const id=document.getElementById("matchProperty").value;
+  if(!id)return;
+  try{
+    const d=await api("/api/staff/match/property/"+encodeURIComponent(id));
+    document.getElementById("propertyMatchResults").innerHTML=d.results.map((r,i)=>
+      `<div class="list-row ${i===0?"best":""}">
+       <span class="score">${r.score}</span><b>${r.client.name}</b><br>${r.client.zone.main}<br>
+       <small>${r.reason}</small><br>
+       <button class="primary" onclick="makeProposalServer('${r.client.id}','${d.property.id}','${d.property.ref}')">Proponi</button>
+       </div>`).join("")||"<p>Nessun cliente.</p>";
+  }catch(e){alert(e.message);}
+};
+
+window.makeProposalServer=async function(clientId,propertyId,ref){
+  try{
+    await api("/api/staff/proposals",{
+      method:"POST",
+      body:JSON.stringify({client_id:clientId,property_id:propertyId,ref})
+    });
+    alert("Proposta registrata.");
+    await renderStaffServer();
+  }catch(e){ alert(e.message); }
+};
+
+shareDocument=async function(){
+  try{
+    await api("/api/staff/documents",{
+      method:"POST",
+      body:JSON.stringify({
+        client_id:document.getElementById("docClient").value,
+        title:document.getElementById("docTitle").value.trim(),
+        url:document.getElementById("docUrl").value.trim()
+      })
+    });
+    document.getElementById("docTitle").value="";
+    document.getElementById("docUrl").value="";
+    await renderStaffServer();
+  }catch(e){ alert(e.message); }
+};
+</script>
+
+</body></html>
