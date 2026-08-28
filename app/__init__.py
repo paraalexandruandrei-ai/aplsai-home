@@ -253,7 +253,14 @@ def client_obj(uid):
     if not u or not cp:return None
     p=json.loads(cp.profile_json)
     created=u.created_at
-    days=max(0,(utcnow()-created).days)
+    if created is None:
+        days=0
+    else:
+        if created.tzinfo is None:
+            created=created.replace(tzinfo=timezone.utc)
+        else:
+            created=created.astimezone(timezone.utc)
+        days=max(0,(utcnow()-created).days)
     return {
         "id":u.id,"name":u.name,"email":u.email,"phone":u.phone,
         "status":cp.status,"preferred_strategy":cp.preferred_strategy,
