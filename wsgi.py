@@ -1,8 +1,10 @@
 import re
 from flask import request
 import app as app_module
+from app.operations import init_operations
 
 app = app_module.create_app()
+init_operations(app, app_module)
 
 
 # Difesa aggiuntiva per i campi testuali ricevuti dal browser.
