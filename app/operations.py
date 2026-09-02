@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from flask import jsonify, request, session
 from .rbac import has_permission
+from .rbac_runtime import install_runtime_rbac
 
 
 FINANCIAL_STATES = {
@@ -73,6 +74,10 @@ def init_operations(app, app_module):
 
     with app.app_context():
         db.create_all()
+
+    # Bridge temporaneo: mantiene staff=Admin e abilita Operator solo sulle API
+    # esplicitamente autorizzate dalla matrice RBAC.
+    install_runtime_rbac(app, app_module)
 
     def permission_user(permission):
         uid = session.get("uid")
