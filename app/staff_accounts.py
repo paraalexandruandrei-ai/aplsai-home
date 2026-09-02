@@ -10,14 +10,17 @@ def init_staff_accounts(app, app_module):
 
     db = app_module.db
 
-    def admin_user():
+    def authorization_result():
         uid = session.get("uid")
         if not uid:
-            return None
+            return None, (jsonify(error="Non autenticato."), 401)
         u = db.session.get(app_module.User, uid)
-        if not u or not has_permission(u.role, "staff_manage"):
-            return None
-        return u
+        if not u:
+            session.clear()
+            return None, (jsonify(error="Sessione non valida."), 401)
+        if not has_permission(u.role, "staff_manage"):
+            return None, (jsonify(error="Permesso insufficiente."), 403)
+        return u, None
 
     def audit(actor, action, object_id, detail=""):
         ext = app.extensions.get("aplsai_operations") or {}
@@ -27,9 +30,9 @@ def init_staff_accounts(app, app_module):
 
     @app.get("/api/admin/operators")
     def list_operators():
-        u = admin_user()
-        if not u:
-            return jsonify(error="Permesso insufficiente."), 403
+        u, denied = authorization_result()
+        if denied:
+            return denied
         rows = app_module.User.query.filter_by(role="operator").order_by(app_module.User.id.asc()).all()
         return jsonify(operators=[{
             "id": x.id,
@@ -40,9 +43,9 @@ def init_staff_accounts(app, app_module):
 
     @app.post("/api/admin/operators")
     def create_operator():
-        u = admin_user()
-        if not u:
-            return jsonify(error="Permesso insufficiente."), 403
+        u, denied = authorization_result()
+        if denied:
+            return denied
         d = request.get_json(silent=True) or {}
         name = app_module.clean_text(d.get("name"), 160)
         email = app_module.clean_email(d.get("email"))
@@ -53,12 +56,22 @@ def init_staff_accounts(app, app_module):
             return jsonify(error="La password deve avere almeno 10 caratteri, con lettere e numeri."), 400
         if app_module.User.query.filter_by(email=email).first():
             return jsonify(error="Email già registrata."), 409
-        op = app_module.User(role="operator", name=name, email=email, phone="",
-                             password_hash=generate_password_hash(password, method="scrypt"))
+        op = app_module.User(
+            role="operator",
+            name=name,
+            email=email,
+            phone="",
+            password_hash=generate_password_hash(password, method="scrypt"),
+        )
         db.session.add(op)
         db.session.flush()
         audit(u, "operator_create", op.id, f"email={email}")
         db.session.commit()
-        return jsonify(operator={"id":op.id,"name":op.name,"email":op.email,"active":True}), 201
+        return jsonify(operator={
+            "id": op.id,
+            "name": op.name,
+            "email": op.email,
+            "active": True,
+        }), 201
 
     app.extensions["aplsai_staff_accounts"] = {"installed": True}
