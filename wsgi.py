@@ -8,8 +8,6 @@ init_operations(app, app_module)
 
 
 # Difesa aggiuntiva per i campi testuali ricevuti dal browser.
-# Le password non vengono mai trasformate: devono essere verificate esattamente
-# come sono state inserite dall'utente.
 def _sanitize_value(value, key=None):
     if key == "password":
         return value
@@ -202,7 +200,8 @@ def aplsai_final_ux(response):
     if response.content_type and response.content_type.startswith('text/html'):
         html = response.get_data(as_text=True)
         if '</body>' in html and 'aplsai-final-actions' not in html:
-            html = html.replace('</body>', FINAL_UX + '\n</body>')
+            extra = FINAL_UX + '\n<script src="/static/staff_operations_edit.js"></script>\n'
+            html = html.replace('</body>', extra + '</body>')
             response.set_data(html)
             response.headers['Content-Length'] = str(len(response.get_data()))
     return response
