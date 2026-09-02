@@ -30,6 +30,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         with cls.app.app_context():
             for role, email in [
                 ("operator", "existing-operator@example.com"),
+                ("operator", "toggle-operator@example.com"),
                 ("client", "account-client@example.com"),
             ]:
                 if not app_module.User.query.filter_by(email=email).first():
@@ -38,6 +39,7 @@ class OperatorAccountsCheck(unittest.TestCase):
                         name=f"Test {role}",
                         email=email,
                         phone="",
+                        active=True,
                         password_hash=generate_password_hash("RoleTest12345", method="scrypt"),
                     ))
             app_module.db.session.commit()
@@ -51,6 +53,11 @@ class OperatorAccountsCheck(unittest.TestCase):
 
     def setUp(self):
         app_module._login_attempts.clear()
+        with self.app.app_context():
+            u = app_module.User.query.filter_by(email="toggle-operator@example.com").first()
+            if u:
+                u.active = True
+                app_module.db.session.commit()
 
     def login_admin(self):
         c = self.app.test_client()
@@ -88,7 +95,7 @@ class OperatorAccountsCheck(unittest.TestCase):
             "password": "NewOperator12345",
         })
         self.assertEqual(r.status_code, 201, r.get_json())
-        self.assertEqual(r.get_json()["operator"]["email"], "new-operator@example.com")
+        self.assertTrue(r.get_json()["operator"]["active"])
 
         login = self.app.test_client().post("/api/staff/login", json={
             "email": "new-operator@example.com",
@@ -96,6 +103,58 @@ class OperatorAccountsCheck(unittest.TestCase):
         })
         self.assertEqual(login.status_code, 200, login.get_json())
         self.assertEqual(login.get_json().get("role"), "operator")
+
+    def test_admin_can_deactivate_and_reactivate_operator(self):
+        admin = self.login_admin()
+        with self.app.app_context():
+            op_id = app_module.User.query.filter_by(email="toggle-operator@example.com").first().id
+
+        r = admin.patch(f"/api/admin/operators/{op_id}/active", json={"active": False})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        self.assertFalse(r.get_json()["operator"]["active"])
+
+        denied = self.app.test_client().post("/api/staff/login", json={
+            "email": "toggle-operator@example.com",
+            "password": "RoleTest12345",
+        })
+        self.assertEqual(denied.status_code, 403, denied.get_json())
+
+        r = admin.patch(f"/api/admin/operators/{op_id}/active", json={"active": True})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        self.assertTrue(r.get_json()["operator"]["active"])
+
+        allowed = self.app.test_client().post("/api/staff/login", json={
+            "email": "toggle-operator@example.com",
+            "password": "RoleTest12345",
+        })
+        self.assertEqual(allowed.status_code, 200, allowed.get_json())
+
+    def test_deactivation_invalidates_existing_session_on_next_request(self):
+        c = self.app.test_client()
+        login = c.post("/api/staff/login", json={
+            "email": "toggle-operator@example.com",
+            "password": "RoleTest12345",
+        })
+        self.assertEqual(login.status_code, 200, login.get_json())
+        self.assertEqual(c.get("/api/staff/dashboard").status_code, 200)
+
+        admin = self.login_admin()
+        with self.app.app_context():
+            op_id = app_module.User.query.filter_by(email="toggle-operator@example.com").first().id
+        self.assertEqual(admin.patch(f"/api/admin/operators/{op_id}/active", json={"active": False}).status_code, 200)
+        self.assertEqual(c.get("/api/staff/dashboard").status_code, 401)
+
+    def test_deactivation_is_audited(self):
+        admin = self.login_admin()
+        with self.app.app_context():
+            op_id = app_module.User.query.filter_by(email="toggle-operator@example.com").first().id
+        self.assertEqual(admin.patch(f"/api/admin/operators/{op_id}/active", json={"active": False}).status_code, 200)
+        audit = admin.get("/api/staff/audit?limit=50")
+        self.assertEqual(audit.status_code, 200)
+        self.assertTrue(any(
+            e.get("action") == "operator_deactivate" and e.get("object_id") == str(op_id)
+            for e in audit.get_json().get("events", [])
+        ))
 
     def test_duplicate_email_is_rejected(self):
         admin = self.login_admin()
