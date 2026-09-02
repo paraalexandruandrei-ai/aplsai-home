@@ -1,23 +1,48 @@
 from flask import jsonify, request, session
 from werkzeug.security import generate_password_hash
 
+from . import User, db
 from .rbac import has_permission
+from .schema_migrations import ensure_user_active_column
+
+
+# The schema migration must run before create_app() touches the User table.
+ensure_user_active_column()
+if not hasattr(User, "active"):
+    User.active = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
 
 
 def init_staff_accounts(app, app_module):
     if app.extensions.get("aplsai_staff_accounts"):
         return
 
-    db = app_module.db
+    dbx = app_module.db
+
+    @app.before_request
+    def reject_inactive_session():
+        uid = session.get("uid")
+        if not uid:
+            return None
+        u = dbx.session.get(app_module.User, uid)
+        if not u:
+            session.clear()
+            return jsonify(error="Sessione non valida."), 401
+        if getattr(u, "active", True) is False:
+            session.clear()
+            return jsonify(error="Account disattivato."), 401
+        return None
 
     def authorization_result():
         uid = session.get("uid")
         if not uid:
             return None, (jsonify(error="Non autenticato."), 401)
-        u = db.session.get(app_module.User, uid)
+        u = dbx.session.get(app_module.User, uid)
         if not u:
             session.clear()
             return None, (jsonify(error="Sessione non valida."), 401)
+        if getattr(u, "active", True) is False:
+            session.clear()
+            return None, (jsonify(error="Account disattivato."), 401)
         if not has_permission(u.role, "staff_manage"):
             return None, (jsonify(error="Permesso insufficiente."), 403)
         return u, None
@@ -38,7 +63,7 @@ def init_staff_accounts(app, app_module):
             "id": x.id,
             "name": x.name,
             "email": x.email,
-            "active": bool(getattr(x, "active", True)),
+            "active": bool(x.active),
         } for x in rows])
 
     @app.post("/api/admin/operators")
@@ -61,17 +86,46 @@ def init_staff_accounts(app, app_module):
             name=name,
             email=email,
             phone="",
+            active=True,
             password_hash=generate_password_hash(password, method="scrypt"),
         )
-        db.session.add(op)
-        db.session.flush()
+        dbx.session.add(op)
+        dbx.session.flush()
         audit(u, "operator_create", op.id, f"email={email}")
-        db.session.commit()
+        dbx.session.commit()
         return jsonify(operator={
             "id": op.id,
             "name": op.name,
             "email": op.email,
             "active": True,
         }), 201
+
+    @app.patch("/api/admin/operators/<int:operator_id>/active")
+    def set_operator_active(operator_id):
+        actor, denied = authorization_result()
+        if denied:
+            return denied
+        d = request.get_json(silent=True) or {}
+        if not isinstance(d.get("active"), bool):
+            return jsonify(error="Stato active non valido."), 400
+        op = dbx.session.get(app_module.User, operator_id)
+        if not op or op.role != "operator":
+            return jsonify(error="Operatore non trovato."), 404
+        new_state = d["active"]
+        if bool(op.active) == new_state:
+            return jsonify(operator={
+                "id": op.id, "name": op.name, "email": op.email, "active": bool(op.active)
+            })
+        op.active = new_state
+        audit(
+            actor,
+            "operator_activate" if new_state else "operator_deactivate",
+            op.id,
+            f"email={op.email}; active={str(new_state).lower()}",
+        )
+        dbx.session.commit()
+        return jsonify(operator={
+            "id": op.id, "name": op.name, "email": op.email, "active": bool(op.active)
+        })
 
     app.extensions["aplsai_staff_accounts"] = {"installed": True}
