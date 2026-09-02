@@ -45,8 +45,13 @@ class SecurityBaselineTest(unittest.TestCase):
             "password": "Cliente12345", "profile": PROFILE,
         })
 
-    def login_client(self, client, email):
-        return client.post("/api/client/login", json={"email": email, "password": "Cliente12345"})
+    def login_client(self, client, email, password="Cliente12345"):
+        return client.post("/api/client/login", json={"email": email, "password": password})
+
+    def login_admin(self, client):
+        return client.post("/api/staff/login", json={
+            "email": "admin-test@example.com", "password": "AdminTest12345"
+        })
 
     def test_health_is_public(self):
         r=self.app.test_client().get("/api/health")
@@ -64,11 +69,19 @@ class SecurityBaselineTest(unittest.TestCase):
         self.assertEqual(c.get("/api/staff/operations").status_code,401)
         self.assertEqual(c.get("/api/staff/audit").status_code,401)
 
+    def test_client_cannot_modify_staff_operation(self):
+        c=self.app.test_client(); self.assertEqual(self.register_client(c,"nostaffwrite@example.com").status_code,201)
+        with self.app.app_context():
+            uid=app_module.User.query.filter_by(email="nostaffwrite@example.com").first().id
+        r=c.post(f"/api/staff/client/{uid}/operation",json={
+            "phase":"Ricerca attiva","financial_state":"capitale_verificato","next_action":"Test"
+        })
+        self.assertEqual(r.status_code,401)
+
     def test_client_login_works_with_registered_credentials(self):
         registrar=self.app.test_client()
         self.assertEqual(self.register_client(registrar,"logincheck@example.com").status_code,201)
-        c=self.app.test_client()
-        r=self.login_client(c,"logincheck@example.com")
+        c=self.app.test_client(); r=self.login_client(c,"logincheck@example.com")
         self.assertEqual(r.status_code,200, r.get_json())
         self.assertEqual(r.get_json()["client"]["email"],"logincheck@example.com")
 
@@ -92,6 +105,24 @@ class SecurityBaselineTest(unittest.TestCase):
         self.assertEqual(ra.get_json()["client"]["email"],"alice@example.com")
         self.assertEqual(rb.get_json()["client"]["email"],"bob@example.com")
 
+    def test_logout_invalidates_client_session(self):
+        c=self.app.test_client(); self.assertEqual(self.register_client(c,"logoutcheck@example.com").status_code,201)
+        self.assertEqual(c.get("/api/client/me").status_code,200)
+        self.assertEqual(c.post("/api/logout",json={}).status_code,200)
+        self.assertEqual(c.get("/api/client/me").status_code,401)
+
+    def test_failed_login_rate_limit_blocks_sixth_attempt(self):
+        c=self.app.test_client()
+        for i in range(app_module.LOGIN_MAX_ATTEMPTS):
+            r=self.login_client(c,"missing-rate@example.com",password="WrongPassword1")
+            self.assertEqual(r.status_code,401, f"tentativo {i+1}: {r.get_json()}")
+        r=self.login_client(c,"missing-rate@example.com",password="WrongPassword1")
+        self.assertEqual(r.status_code,429)
+
+    def test_staff_session_does_not_grant_client_access(self):
+        c=self.app.test_client(); self.assertEqual(self.login_admin(c).status_code,200)
+        self.assertEqual(c.get("/api/client/me").status_code,401)
+
     def test_wrong_origin_is_rejected(self):
         r=self.app.test_client().post("/api/client/login",json={"email":"nobody@example.com","password":"WrongPassword1"},headers={"Origin":"https://evil.example"})
         self.assertEqual(r.status_code,403)
@@ -109,7 +140,23 @@ class SecurityBaselineTest(unittest.TestCase):
         self.assertEqual(self.app.test_client().get("/api/health").headers.get("Cache-Control"),"no-store")
 
     def test_admin_can_login_and_read_audit(self):
-        c=self.app.test_client(); r=c.post("/api/staff/login",json={"email":"admin-test@example.com","password":"AdminTest12345"})
+        c=self.app.test_client(); r=self.login_admin(c)
         self.assertEqual(r.status_code,200); self.assertEqual(c.get("/api/staff/audit").status_code,200)
+
+    def test_staff_operation_update_is_recorded_in_audit(self):
+        registrar=self.app.test_client()
+        self.assertEqual(self.register_client(registrar,"auditclient@example.com").status_code,201)
+        with self.app.app_context():
+            uid=app_module.User.query.filter_by(email="auditclient@example.com").first().id
+        admin=self.app.test_client(); self.assertEqual(self.login_admin(admin).status_code,200)
+        r=admin.post(f"/api/staff/client/{uid}/operation",json={
+            "phase":"Ricerca attiva","financial_state":"capitale_verificato",
+            "next_action":"Contattare cliente","assigned_to":"Admin"
+        })
+        self.assertEqual(r.status_code,200,r.get_json())
+        audit=admin.get("/api/staff/audit?limit=20")
+        self.assertEqual(audit.status_code,200)
+        self.assertTrue(any(e.get("action")=="client_operation_update" and e.get("object_id")==str(uid)
+                            for e in audit.get_json().get("events",[])))
 
 if __name__ == "__main__": unittest.main()
