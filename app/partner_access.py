@@ -2,6 +2,7 @@ from flask import jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .rbac import has_permission
+from .document_security import init_document_security
 
 
 def init_partner_access(app, app_module):
@@ -194,3 +195,4 @@ def init_partner_access(app, app_module):
         return jsonify(assignment=assignment.to_dict()), 201
 
     app.extensions["aplsai_partner_access"] = {"installed": True, "PartnerAssignment": PartnerAssignment}
+    init_document_security(app, app_module)
