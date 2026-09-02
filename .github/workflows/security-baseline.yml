@@ -27,5 +27,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Run operator account checks
         run: PYTHONPATH=. python tests/operator_accounts_check.py -v
+      - name: Run partner access checks
+        run: PYTHONPATH=. python tests/partner_access_check.py -v
       - name: Check migration setup
         run: PYTHONPATH=. python tests/migration_setup_check.py
