@@ -1,17 +1,11 @@
-from datetime import datetime
 import app as app_module
 
-# Compatibilita' DateTime tra SQLite/SQLAlchemy e i valori salvati in precedenza.
-def utcnow_compatible():
-    return datetime.utcnow()
-
-app_module.utcnow = utcnow_compatible
 app = app_module.create_app()
 
 # Correzioni UX applicate alla versione online senza alterare la struttura grafica approvata.
 FINAL_UX = r'''<script>
 (function () {
-  // 1) MOBILE: durante una scelta il wizard non deve riportare il cliente
+  // MOBILE: durante una scelta il wizard non deve riportare il cliente
   // all'inizio della pagina. Home e aree riservate continuano a scorrere normalmente.
   const nativeScrollTo = window.scrollTo.bind(window);
   window.scrollTo = function(a, b) {
@@ -24,8 +18,7 @@ FINAL_UX = r'''<script>
     return nativeScrollTo(a, b);
   };
 
-  // 2) FINALE: rendiamo sempre visibile un messaggio conclusivo forte,
-  // con un'azione chiara verso l'Area Cliente.
+  // FINALE: messaggio conclusivo e azione chiara verso l'Area Cliente.
   if (typeof window.choose === 'function') {
     const previousChoose = window.choose;
     window.choose = async function(strategy, name) {
@@ -51,6 +44,7 @@ FINAL_UX = r'''<script>
   }
 })();
 </script>'''
+
 
 @app.after_request
 def aplsai_final_ux(response):
