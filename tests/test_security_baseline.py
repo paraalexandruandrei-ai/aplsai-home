@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from werkzeug.security import generate_password_hash
 
 _tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 _tmp.close()
@@ -52,6 +53,19 @@ class SecurityBaselineTest(unittest.TestCase):
         return client.post("/api/staff/login", json={
             "email": "admin-test@example.com", "password": "AdminTest12345"
         })
+
+    def make_role_session(self, role, email):
+        with self.app.app_context():
+            u=app_module.User.query.filter_by(email=email).first()
+            if not u:
+                u=app_module.User(role=role,name=f"Test {role}",email=email,phone="",
+                    password_hash=generate_password_hash("RoleTest12345",method="scrypt"))
+                app_module.db.session.add(u); app_module.db.session.commit()
+            uid=u.id
+        c=self.app.test_client()
+        with c.session_transaction() as s:
+            s["uid"]=uid; s["nonce"]=f"{role}-test"; s.permanent=True
+        return c
 
     def test_health_is_public(self):
         r=self.app.test_client().get("/api/health")
@@ -122,6 +136,22 @@ class SecurityBaselineTest(unittest.TestCase):
     def test_staff_session_does_not_grant_client_access(self):
         c=self.app.test_client(); self.assertEqual(self.login_admin(c).status_code,200)
         self.assertEqual(c.get("/api/client/me").status_code,401)
+
+    def test_operator_can_read_operations_but_not_audit(self):
+        operator=self.make_role_session("operator","operator-test@example.com")
+        self.assertEqual(operator.get("/api/staff/operations").status_code,200)
+        self.assertEqual(operator.get("/api/staff/audit").status_code,401)
+
+    def test_operator_can_update_client_operation(self):
+        registrar=self.app.test_client()
+        self.assertEqual(self.register_client(registrar,"operator-client@example.com").status_code,201)
+        with self.app.app_context():
+            uid=app_module.User.query.filter_by(email="operator-client@example.com").first().id
+        operator=self.make_role_session("operator","operator-write@example.com")
+        r=operator.post(f"/api/staff/client/{uid}/operation",json={
+            "phase":"Ricerca attiva","financial_state":"pre_delibera","next_action":"Richiamare cliente"
+        })
+        self.assertEqual(r.status_code,200,r.get_json())
 
     def test_wrong_origin_is_rejected(self):
         r=self.app.test_client().post("/api/client/login",json={"email":"nobody@example.com","password":"WrongPassword1"},headers={"Origin":"https://evil.example"})
