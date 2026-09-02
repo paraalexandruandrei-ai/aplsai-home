@@ -19,8 +19,6 @@ def _sanitize_value(value, key=None):
         return [_sanitize_value(v) for v in value]
     if isinstance(value, str):
         value = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", value)
-        # I campi APLSAI sono testo/dati, non HTML. Impedisce payload HTML/script
-        # memorizzati nei profili e successivamente mostrati nelle aree riservate.
         return value.replace("<", "").replace(">", "")
     return value
 
@@ -31,18 +29,12 @@ def aplsai_sanitize_json_input():
         payload = request.get_json(silent=True)
         if isinstance(payload, dict):
             sanitized = _sanitize_value(payload)
-            # Flask conserva in cache il JSON decodificato. Sostituiamo quella copia
-            # affinché le route applicative leggano soltanto il payload ripulito.
             request._cached_json = (sanitized, sanitized)
 
 
-# Correzioni UX e hardening browser applicati alla versione online senza alterare
-# la struttura grafica approvata.
+# Correzioni UX, hardening browser e prima Cabina di Regia Staff.
 FINAL_UX = r'''<script>
 (function () {
-  // PRIVACY: dalla migrazione al backend, profili e sessioni non devono più essere
-  // conservati nel localStorage del dispositivo. Rimuove anche eventuali residui
-  // creati dalle prime versioni del prototipo.
   const obsoleteKeys = [
     'aplsai_profiles','aplsai_current_profile','aplsai_client_session',
     'aplsai_staff_session','aplsai_properties','aplsai_deals',
@@ -53,7 +45,6 @@ FINAL_UX = r'''<script>
     window.saveClientProfile = function(){ return null; };
   }
 
-  // PASSWORD: frontend allineato alla policy server (minimo 10 caratteri).
   const previousRender = window.render;
   if (typeof previousRender === 'function') {
     window.render = function(){
@@ -82,8 +73,6 @@ FINAL_UX = r'''<script>
     };
   }
 
-  // MOBILE: durante una scelta il wizard non deve riportare il cliente
-  // all'inizio della pagina. Home e aree riservate continuano a scorrere normalmente.
   const nativeScrollTo = window.scrollTo.bind(window);
   window.scrollTo = function(a, b) {
     let top = null;
@@ -95,7 +84,6 @@ FINAL_UX = r'''<script>
     return nativeScrollTo(a, b);
   };
 
-  // FINALE: messaggio conclusivo e azione chiara verso l'Area Cliente.
   if (typeof window.choose === 'function') {
     const previousChoose = window.choose;
     window.choose = async function(strategy, name) {
@@ -117,6 +105,92 @@ FINAL_UX = r'''<script>
         const target = box.querySelector('.success') || box;
         target.scrollIntoView({behavior:'smooth', block:'center'});
       }, 80);
+    };
+  }
+
+  // CABINA DI REGIA V1: usa solo dati operativi server-side.
+  const financialLabels = {
+    da_verificare:'Da verificare',
+    mutuo_da_richiedere:'Mutuo da richiedere',
+    pre_delibera:'Pre-delibera',
+    mutuo_deliberato:'Mutuo deliberato',
+    capitale_dichiarato:'Capitale dichiarato',
+    capitale_verificato:'Capitale verificato'
+  };
+
+  function urgencyRank(row){
+    const o=row.operation||{};
+    const due=o.next_action_due_at ? new Date(o.next_action_due_at).getTime() : null;
+    if (due && due < Date.now()) return 0;
+    if (o.financial_state==='capitale_verificato') return 1;
+    if (o.financial_state==='mutuo_deliberato') return 2;
+    if (o.financial_state==='pre_delibera' || o.financial_state==='capitale_dichiarato') return 3;
+    if (o.phase==='Bloccato') return 4;
+    return 5;
+  }
+
+  async function loadStaffOperations(){
+    if (typeof api !== 'function') return [];
+    const d=await api('/api/staff/operations');
+    const rows=d.results||[];
+    rows.sort((a,b)=>urgencyRank(a)-urgencyRank(b));
+    window.__aplsaiOperations=rows;
+    return rows;
+  }
+
+  function opForClient(id){
+    return (window.__aplsaiOperations||[]).find(x=>String(x.client?.id)===String(id));
+  }
+
+  function renderCommandCenter(rows){
+    const grid=document.getElementById('todayGrid');
+    if(!grid) return;
+    const top=rows.slice(0,8);
+    const card=`<article class="area-card" id="aplsaiCommandCenter">
+      <h3>Cabina di regia</h3>
+      ${top.map(r=>{
+        const c=r.client||{}, o=r.operation||{};
+        const due=o.next_action_due_at?new Date(o.next_action_due_at):null;
+        const overdue=due && due.getTime()<Date.now();
+        return `<div class="list-row">
+          <b>${c.name||'Cliente'}</b><br>
+          <small>${o.phase||'Da qualificare'} · ${financialLabels[o.financial_state]||'Da verificare'}</small><br>
+          <strong>${o.next_action||'Definire prossima azione'}</strong>
+          ${o.assigned_to?`<br><small>Responsabile: ${o.assigned_to}</small>`:''}
+          ${due?`<br><small>${overdue?'⚠ Scaduta: ':'Scadenza: '}${due.toLocaleDateString('it-IT')}</small>`:''}
+        </div>`;
+      }).join('')||'<p>Nessuna pratica operativa.</p>'}
+    </article>`;
+    const old=document.getElementById('aplsaiCommandCenter');
+    if(old) old.remove();
+    grid.insertAdjacentHTML('afterbegin',card);
+  }
+
+  const previousRenderStaffServer=window.renderStaffServer;
+  if(typeof previousRenderStaffServer==='function'){
+    window.renderStaffServer=async function(){
+      const out=await previousRenderStaffServer.apply(this,arguments);
+      try{ renderCommandCenter(await loadStaffOperations()); }catch(_){ }
+      return out;
+    };
+  }
+
+  const previousOpenServerClient=window.openServerClient;
+  if(typeof previousOpenServerClient==='function'){
+    window.openServerClient=function(id){
+      previousOpenServerClient(id);
+      const row=opForClient(id);
+      const box=document.getElementById('staffClientDetail');
+      if(!row||!box) return;
+      const o=row.operation||{};
+      const due=o.next_action_due_at?new Date(o.next_action_due_at).toLocaleDateString('it-IT'):'—';
+      box.insertAdjacentHTML('beforeend',`
+        <div class="sum"><b>Fase pratica</b>${o.phase||'—'}</div>
+        <div class="sum"><b>Prontezza finanziaria</b>${financialLabels[o.financial_state]||'Da verificare'}</div>
+        <div class="sum"><b>Prossima azione</b>${o.next_action||'—'}</div>
+        <div class="sum"><b>Scadenza</b>${due}</div>
+        <div class="sum"><b>Responsabile</b>${o.assigned_to||'Da assegnare'}</div>
+        ${o.blocked_reason?`<div class="sum"><b>Blocco</b>${o.blocked_reason}</div>`:''}`);
     };
   }
 })();
