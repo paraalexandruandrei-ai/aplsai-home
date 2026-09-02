@@ -36,6 +36,9 @@ class SecurityBaselineTest(unittest.TestCase):
         try: os.unlink(_tmp.name)
         except OSError: pass
 
+    def setUp(self):
+        app_module._login_attempts.clear()
+
     def register_client(self, client, email):
         return client.post("/api/register", json={
             "name": "Cliente Test", "email": email, "phone": "+39 333 1234567",
@@ -61,16 +64,31 @@ class SecurityBaselineTest(unittest.TestCase):
         self.assertEqual(c.get("/api/staff/operations").status_code,401)
         self.assertEqual(c.get("/api/staff/audit").status_code,401)
 
+    def test_client_login_works_with_registered_credentials(self):
+        registrar=self.app.test_client()
+        self.assertEqual(self.register_client(registrar,"logincheck@example.com").status_code,201)
+        c=self.app.test_client()
+        r=self.login_client(c,"logincheck@example.com")
+        self.assertEqual(r.status_code,200, r.get_json())
+        self.assertEqual(r.get_json()["client"]["email"],"logincheck@example.com")
+
     def test_client_session_only_returns_own_profile(self):
         registrar=self.app.test_client()
         self.assertEqual(self.register_client(registrar,"alice@example.com").status_code,201)
         registrar.post("/api/logout",json={})
         self.assertEqual(self.register_client(registrar,"bob@example.com").status_code,201)
+        with self.app.app_context():
+            alice=app_module.User.query.filter_by(email="alice@example.com").first()
+            bob=app_module.User.query.filter_by(email="bob@example.com").first()
+            self.assertIsNotNone(alice); self.assertIsNotNone(bob)
+            alice_id=alice.id; bob_id=bob.id
         a=self.app.test_client(); b=self.app.test_client()
-        self.assertEqual(self.login_client(a,"alice@example.com").status_code,200)
-        self.assertEqual(self.login_client(b,"bob@example.com").status_code,200)
+        with a.session_transaction() as s:
+            s["uid"]=alice_id; s["nonce"]="alice-test"; s.permanent=True
+        with b.session_transaction() as s:
+            s["uid"]=bob_id; s["nonce"]="bob-test"; s.permanent=True
         ra=a.get("/api/client/me"); rb=b.get("/api/client/me")
-        self.assertEqual(ra.status_code,200); self.assertEqual(rb.status_code,200)
+        self.assertEqual(ra.status_code,200,ra.get_json()); self.assertEqual(rb.status_code,200,rb.get_json())
         self.assertEqual(ra.get_json()["client"]["email"],"alice@example.com")
         self.assertEqual(rb.get_json()["client"]["email"],"bob@example.com")
 
