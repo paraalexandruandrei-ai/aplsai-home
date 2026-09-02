@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
-from flask import jsonify, request
+from flask import jsonify, request, session
+from .rbac import has_permission
 
 
 FINANCIAL_STATES = {
@@ -73,8 +74,14 @@ def init_operations(app, app_module):
     with app.app_context():
         db.create_all()
 
-    def staff_user():
-        return app_module.require_role("staff")
+    def permission_user(permission):
+        uid = session.get("uid")
+        if not uid:
+            return None
+        u = db.session.get(app_module.User, uid)
+        if not u or not has_permission(u.role, permission):
+            return None
+        return u
 
     def parse_iso_datetime(value):
         if not value:
@@ -98,7 +105,7 @@ def init_operations(app, app_module):
 
     @app.get("/api/staff/operations")
     def staff_operations():
-        u = staff_user()
+        u = permission_user("client_read_all")
         if not u:
             return jsonify(error="Non autorizzato."), 401
         rows = []
@@ -114,7 +121,7 @@ def init_operations(app, app_module):
 
     @app.post("/api/staff/client/<int:client_id>/operation")
     def update_client_operation(client_id):
-        u = staff_user()
+        u = permission_user("client_update_operation")
         if not u:
             return jsonify(error="Non autorizzato."), 401
         if not app_module.ClientProfile.query.filter_by(user_id=client_id).first():
@@ -161,23 +168,20 @@ def init_operations(app, app_module):
 
     @app.after_request
     def audit_staff_business_actions(response):
-        # IMPORTANT: non chiamare require_role('staff') sulle route cliente.
-        # require_role è fail-closed e, se trova una sessione di ruolo diverso,
-        # la cancella. L'hook di audit deve quindi intervenire solo sulle route
-        # staff che intende realmente tracciare.
         if response.status_code >= 400 or request.method != "POST":
             return response
 
         path = request.path
-        audited_paths = {
-            "/api/staff/properties",
-            "/api/staff/proposals",
-            "/api/staff/documents",
+        route_permissions = {
+            "/api/staff/properties": "property_create",
+            "/api/staff/proposals": "proposal_create",
+            "/api/staff/documents": "document_share",
         }
-        if path not in audited_paths:
+        permission = route_permissions.get(path)
+        if not permission:
             return response
 
-        u = staff_user()
+        u = permission_user(permission)
         if not u:
             return response
 
@@ -211,7 +215,7 @@ def init_operations(app, app_module):
 
     @app.get("/api/staff/audit")
     def staff_audit():
-        u = staff_user()
+        u = permission_user("audit_read")
         if not u:
             return jsonify(error="Non autorizzato."), 401
         try:
