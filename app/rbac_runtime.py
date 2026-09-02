@@ -17,12 +17,7 @@ PREFIX_PERMISSIONS = {
 
 
 def install_runtime_rbac(app, app_module):
-    """Bridge legacy staff routes to granular permissions during migration.
-
-    Existing role='staff' remains Admin-compatible. Operator sessions can use only
-    explicitly mapped staff routes. Unknown staff routes fail closed for Operator.
-    Client/Partner behavior remains denied by the legacy routes or their own APIs.
-    """
+    """Bridge legacy staff routes to granular permissions during migration."""
     if app.extensions.get("aplsai_rbac_runtime"):
         return
 
@@ -36,7 +31,8 @@ def install_runtime_rbac(app, app_module):
         if not uid:
             return None
         u = app_module.db.session.get(app_module.User, uid)
-        if not u:
+        if not u or getattr(u, "active", True) is False:
+            session.clear()
             return None
         canonical = effective_role(u.role)
         if canonical in {"admin", "operator"}:
@@ -56,11 +52,6 @@ def install_runtime_rbac(app, app_module):
 
     @app.before_request
     def operator_staff_login_gate():
-        """Allow Operator accounts to use the existing Staff login form.
-
-        Legacy Admin/Staff authentication remains handled by the original route.
-        We intercept only when the submitted email belongs to role='operator'.
-        """
         if request.path != "/api/staff/login" or request.method != "POST":
             return None
 
@@ -74,6 +65,8 @@ def install_runtime_rbac(app, app_module):
         key = app_module.login_key("staff", email)
         if app_module.login_blocked(key):
             return jsonify(error="Troppi tentativi. Riprova tra qualche minuto."), 429
+        if getattr(u, "active", True) is False:
+            return jsonify(error="Account disattivato."), 403
         if not check_password_hash(u.password_hash, password):
             app_module.register_login_failure(key)
             return jsonify(error="Credenziali staff errate."), 401
@@ -88,28 +81,29 @@ def install_runtime_rbac(app, app_module):
         if not path.startswith("/api/staff/"):
             return None
 
-        # These endpoints already enforce their own granular permission checks.
         if path == "/api/staff/operations" or path == "/api/staff/audit" or (
             path.startswith("/api/staff/client/") and path.endswith("/operation")
         ):
             return None
 
-        # Login must remain public to unauthenticated staff/operator accounts.
         if path == "/api/staff/login":
             return None
 
         uid = session.get("uid")
         if not uid:
-            return None  # legacy route returns 401
+            return None
         u = app_module.db.session.get(app_module.User, uid)
         if not u:
             return None
+        if getattr(u, "active", True) is False:
+            session.clear()
+            return jsonify(error="Account disattivato."), 401
 
         canonical = effective_role(u.role)
         if canonical == "admin":
             return None
         if canonical != "operator":
-            return None  # legacy route denies client/partner
+            return None
 
         permission = required_permission_for_path(path)
         if not permission or not has_permission(u.role, permission):
