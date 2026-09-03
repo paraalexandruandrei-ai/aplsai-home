@@ -29,5 +29,7 @@ jobs:
         run: PYTHONPATH=. python tests/operator_accounts_check.py -v
       - name: Run partner access checks
         run: PYTHONPATH=. python tests/partner_access_check.py -v
+      - name: Run document security checks
+        run: PYTHONPATH=. python tests/document_security_check.py -v
       - name: Check migration setup
         run: PYTHONPATH=. python tests/migration_setup_check.py
