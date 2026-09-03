@@ -44,6 +44,22 @@ FINAL_UX=r'''<script>
  if(typeof previousNext==='function') window.next=async function(){try{if(typeof step!=='undefined'&&step===8){const p=document.getElementById('password');if(p&&p.value.length<10){if(typeof err==='function')err('La password deve avere almeno 10 caratteri, con lettere e numeri.');return;}}}catch(_){}return previousNext.apply(this,arguments);};
  const nativeScrollTo=window.scrollTo.bind(window);
  window.scrollTo=function(a,b){let top=null;if(typeof a==='object'&&a!==null)top=a.top;else if(typeof a==='number')top=(typeof b==='number'?b:a);const wizard=document.getElementById('wizardView');const visible=wizard&&wizard.style.display!=='none';if(window.innerWidth<=700&&visible&&top===0)return;return nativeScrollTo(a,b);};
+ function fixHealthBadge(){
+   const badge=[...document.querySelectorAll('body > div')].find(el=>(el.textContent||'').trim().toLowerCase().startsWith('aplsai online'));
+   if(!badge)return false;
+   badge.setAttribute('aria-label','APLSAI online');
+   badge.title='APLSAI online';
+   if(window.innerWidth<=700){
+     badge.textContent='';
+     badge.style.cssText='position:fixed;right:10px;bottom:76px;z-index:55;width:10px;height:10px;background:#2f7d32;border-radius:50%;padding:0;box-shadow:0 0 0 2px #fff,0 1px 4px #0003;pointer-events:none';
+   }else{
+     badge.textContent='● Online';
+     badge.style.cssText='position:fixed;right:10px;bottom:10px;z-index:999;background:#536b45;color:#fff;padding:4px 7px;border-radius:999px;font-size:9px;font-weight:800;pointer-events:none';
+   }
+   return true;
+ }
+ let badgeTries=0;const badgeTimer=setInterval(function(){badgeTries++;if(fixHealthBadge()||badgeTries>30)clearInterval(badgeTimer);},150);
+ window.addEventListener('resize',fixHealthBadge,{passive:true});
  if(typeof window.choose==='function'){const old=window.choose;window.choose=async function(strategy,name){await old(strategy,name);const box=document.getElementById('strategyMsg');if(!box)return;box.setAttribute('aria-live','polite');if(!box.querySelector('.aplsai-final-actions'))box.insertAdjacentHTML('beforeend','<div class="aplsai-final-actions" style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><button class="primary" onclick="showClientArea()" style="min-height:48px">Vai alla mia Area Cliente</button><button class="secondary" onclick="goHome()" style="min-height:48px">Torna alla Home</button></div><p style="text-align:center;color:var(--muted);font-size:12px;margin:12px 0 0">La tua richiesta è stata salvata. APLSAI continuerà a lavorare sulle preferenze che hai indicato.</p>');setTimeout(function(){const target=box.querySelector('.success')||box;target.scrollIntoView({behavior:'smooth',block:'center'});},80);};}
  const labels={da_verificare:'Da verificare',mutuo_da_richiedere:'Mutuo da richiedere',pre_delibera:'Pre-delibera',mutuo_deliberato:'Mutuo deliberato',capitale_dichiarato:'Capitale dichiarato',capitale_verificato:'Capitale verificato'};
  function rank(r){const o=r.operation||{},due=o.next_action_due_at?new Date(o.next_action_due_at).getTime():null;if(due&&due<Date.now())return 0;if(o.financial_state==='capitale_verificato')return 1;if(o.financial_state==='mutuo_deliberato')return 2;if(o.financial_state==='pre_delibera'||o.financial_state==='capitale_dichiarato')return 3;if(o.phase==='Bloccato')return 4;return 5;}
