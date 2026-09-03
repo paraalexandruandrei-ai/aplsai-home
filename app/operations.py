@@ -20,6 +20,19 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
+def client_priority(financial_state, phase, blocked_reason=""):
+    """Priority is derived, not manually self-declared by the client."""
+    if phase in {"Chiuso", "Non idoneo al momento"}:
+        return "closed"
+    if phase == "Bloccato" or (blocked_reason or "").strip():
+        return "blocked"
+    if financial_state in {"capitale_verificato", "mutuo_deliberato"}:
+        return "A"
+    if financial_state in {"capitale_dichiarato", "pre_delibera"}:
+        return "B"
+    return "C"
+
+
 def init_operations(app, app_module):
     db = app_module.db
 
@@ -42,6 +55,7 @@ def init_operations(app, app_module):
                 "phase": self.phase,
                 "financial_state": self.financial_state,
                 "financial_verified_at": self.financial_verified_at.isoformat() if self.financial_verified_at else None,
+                "priority": client_priority(self.financial_state, self.phase, self.blocked_reason),
                 "next_action": self.next_action,
                 "next_action_due_at": self.next_action_due_at.isoformat() if self.next_action_due_at else None,
                 "assigned_to": self.assigned_to,
@@ -75,8 +89,6 @@ def init_operations(app, app_module):
     with app.app_context():
         db.create_all()
 
-    # Bridge temporaneo: mantiene staff=Admin e abilita Operator solo sulle API
-    # esplicitamente autorizzate dalla matrice RBAC.
     install_runtime_rbac(app, app_module)
 
     def permission_user(permission):
@@ -121,6 +133,11 @@ def init_operations(app, app_module):
                 db.session.add(op)
                 db.session.flush()
             rows.append({"client": app_module.client_obj(cp.user_id), "operation": op.to_dict()})
+        priority_rank = {"A": 0, "B": 1, "C": 2, "blocked": 3, "closed": 4}
+        rows.sort(key=lambda row: (
+            priority_rank.get(row["operation"]["priority"], 9),
+            row["operation"]["next_action_due_at"] or "9999-12-31T23:59:59+00:00",
+        ))
         db.session.commit()
         return jsonify(results=rows)
 
@@ -167,7 +184,7 @@ def init_operations(app, app_module):
         if fs != prev and fs in {"capitale_verificato", "mutuo_deliberato", "pre_delibera"}:
             op.financial_verified_at = utcnow()
 
-        audit(u, "client_operation_update", "client", client_id, f"phase={phase}; financial_state={fs}")
+        audit(u, "client_operation_update", "client", client_id, f"phase={phase}; financial_state={fs}; priority={client_priority(fs, phase, blocked)}")
         db.session.commit()
         return jsonify(operation=op.to_dict())
 
