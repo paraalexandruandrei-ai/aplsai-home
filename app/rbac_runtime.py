@@ -9,10 +9,12 @@ ROUTE_PERMISSIONS = {
     "/api/staff/properties": "property_create",
     "/api/staff/proposals": "proposal_create",
     "/api/staff/documents": "document_share",
+    "/api/staff/portfolio": "portfolio_read",
 }
 
 PREFIX_PERMISSIONS = {
     "/api/staff/match/": "matching_run",
+    "/api/staff/portfolio/": "portfolio_manage",
 }
 
 

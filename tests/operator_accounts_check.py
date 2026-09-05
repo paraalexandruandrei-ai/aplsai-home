@@ -25,6 +25,7 @@ from app.property_profiles import init_property_profiles
 from app.scenarios import init_scenarios
 from app.feasibility import init_feasibility
 from app.cashflow import init_cashflow
+from app.portfolio import init_portfolio
 
 
 class OperatorAccountsCheck(unittest.TestCase):
@@ -41,6 +42,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         init_scenarios(cls.app, app_module)
         init_feasibility(cls.app, app_module)
         init_cashflow(cls.app, app_module)
+        init_portfolio(cls.app, app_module)
 
         with cls.app.app_context():
             for role, email in [
@@ -308,6 +310,10 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertIn("Cassa mensile", workbook.sheetnames)
         self.assertIn("Stress di cassa", workbook.sheetnames)
         self.assertIn("Storico cassa", workbook.sheetnames)
+        self.assertIn("Portafoglio", workbook.sheetnames)
+        self.assertIn("Stress portafoglio", workbook.sheetnames)
+        self.assertIn("Portafoglio mensile", workbook.sheetnames)
+        self.assertIn("Storico portafoglio", workbook.sheetnames)
         headers = [cell.value for cell in next(workbook["Immobili"].iter_rows(max_row=1))]
         self.assertIn("Trasformabilità", headers)
         self.assertIn("Costo lavori minimo", headers)
@@ -514,6 +520,43 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertEqual(cash_updated.get_json()["plan"]["version"], 3)
         cash_detail = admin.get(f"/api/staff/cashflow/{cash_plan_id}")
         self.assertEqual([row["version"] for row in cash_detail.get_json()["plan"]["revisions"][:3]], [3, 2, 1])
+
+        portfolio_created = admin.patch("/api/staff/portfolio/settings", json={
+            "available_liquidity": 120000, "minimum_liquidity_reserve": 10000,
+            "max_ap_exposure": 100000, "max_concurrent_operations": 1,
+            "notes": "Limiti di prova deliberati per il collaudo.",
+            "change_note": "Configurazione iniziale di collaudo",
+        })
+        self.assertEqual(portfolio_created.status_code, 200, portfolio_created.get_json())
+        portfolio = portfolio_created.get_json()["portfolio"]
+        self.assertEqual(portfolio["results"]["decision"], "SOSTENIBILE")
+        self.assertEqual(portfolio["results"]["active_plan_count"], 1)
+        portfolio_double = next(row for row in portfolio["results"]["cases"] if row["key"] == "doppio_stress")
+        self.assertEqual(portfolio_double["peak_cash_absorption"], 208760)
+        self.assertEqual(portfolio_double["peak_ap_exposure"], 100000)
+        self.assertEqual(portfolio_double["peak_month"], "Novembre 2026")
+        self.assertEqual(portfolio_double["minimum_remaining_liquidity"], 20000)
+        self.assertEqual(portfolio_double["maximum_uncovered_need"], 0)
+        self.assertEqual(portfolio_double["max_concurrent_operations"], 1)
+
+        operator = self.role_client("existing-operator@example.com")
+        self.assertEqual(operator.get("/api/staff/portfolio").status_code, 200)
+        self.assertEqual(operator.patch("/api/staff/portfolio/settings", json={
+            "available_liquidity": 999999,
+        }).status_code, 403)
+
+        portfolio_updated = admin.patch("/api/staff/portfolio/settings", json={
+            "available_liquidity": 120000, "minimum_liquidity_reserve": 10000,
+            "max_ap_exposure": 90000, "max_concurrent_operations": 1,
+            "notes": "Limite più prudente.", "change_note": "Ridotto tetto esposizione",
+        })
+        self.assertEqual(portfolio_updated.status_code, 200, portfolio_updated.get_json())
+        portfolio = portfolio_updated.get_json()["portfolio"]
+        self.assertEqual(portfolio["results"]["decision"], "BLOCCO / RIPIANIFICARE")
+        self.assertIn("Tetto di esposizione AP superato", next(
+            row for row in portfolio["results"]["cases"] if row["key"] == "doppio_stress"
+        )["breaches"])
+        self.assertEqual([row["version"] for row in portfolio["revisions"][:2]], [2, 1])
 
         detail = admin.get(f"/api/staff/properties/{property_id}")
         self.assertEqual(detail.status_code, 200, detail.get_json())

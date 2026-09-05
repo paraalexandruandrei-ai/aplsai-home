@@ -12,6 +12,7 @@ from app.property_profiles import init_property_profiles
 from app.scenarios import init_scenarios
 from app.feasibility import init_feasibility
 from app.cashflow import init_cashflow
+from app.portfolio import init_portfolio
 
 app = app_module.create_app()
 init_operations(app, app_module)
@@ -25,6 +26,7 @@ init_property_profiles(app, app_module)
 init_scenarios(app, app_module)
 init_feasibility(app, app_module)
 init_cashflow(app, app_module)
+init_portfolio(app, app_module)
 
 
 def _sanitize_value(value, key=None):

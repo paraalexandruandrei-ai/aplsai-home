@@ -297,6 +297,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         <button class="staff-tab" onclick="staffTab('scenarios',this)">Scenari</button>
         <button class="staff-tab" onclick="staffTab('feasibility',this)">Fattibilità</button>
         <button class="staff-tab" onclick="staffTab('cashflow',this)">Cassa</button>
+        <button class="staff-tab" onclick="staffTab('portfolio',this)">Portafoglio</button>
         <button class="staff-tab" onclick="staffTab('matching',this)">Matching</button>
         <button class="staff-tab" onclick="staffTab('deals',this)">Trattative</button><button class="staff-tab" onclick="staffTab('referrals',this)">Referral</button><button class="staff-tab" onclick="staffTab('documents',this)">Documenti</button><button class="staff-tab" id="staffCollaboratorsTab" onclick="staffTab('collaborators',this)">Collaboratori</button><button class="staff-tab" id="staffExportTab" onclick="staffTab('export',this)">Esportazione</button><button class="staff-tab" onclick="staffTab('security',this)">Sicurezza</button>
       </div>
@@ -417,6 +418,20 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
           <p class="hint">Il sistema inserisce acquisto, finanziamento e vendita. I lavori vanno distribuiti nei mesi secondo SAL e contratti reali.</p>
         </article>
         <article class="area-card"><h3>Piani di cassa</h3><div id="cashflowList"></div><div id="cashflowDetail" class="list-row" style="display:none"></div></article>
+      </div></div>
+      <div id="staff-portfolio" class="staff-panel" style="display:none"><div class="area-grid">
+        <article class="area-card"><h3>Limiti del portafoglio AP</h3>
+          <p class="hint">Inserisci solo limiti deliberati dall’azienda. I campi vuoti restano “da configurare” e non vengono sostituiti da valori automatici.</p>
+          <label>Liquidità AP disponibile</label><input id="portfolioLiquidity" type="number" min="0" placeholder="Euro">
+          <label>Riserva minima da non utilizzare</label><input id="portfolioReserve" type="number" min="0" placeholder="Euro">
+          <label>Tetto di esposizione AP</label><input id="portfolioMaxExposure" type="number" min="0" placeholder="Euro">
+          <label>Numero massimo operazioni simultanee</label><input id="portfolioMaxConcurrent" type="number" min="1" placeholder="Numero">
+          <label>Note e fonte della decisione</label><textarea id="portfolioNotes" rows="3" placeholder="Delibera interna, disponibilità bancaria, vincoli"></textarea>
+          <label>Motivo modifica</label><input id="portfolioChangeNote" placeholder="Es. aggiornata liquidità disponibile">
+          <button class="primary full" id="portfolioSaveBtn" onclick="savePortfolioSettings()">Salva limiti e ricalcola</button>
+          <p id="portfolioFormMessage" class="hint" aria-live="polite"></p>
+        </article>
+        <article class="area-card"><h3>Esposizione complessiva</h3><div id="portfolioSummary">Caricamento…</div><div id="portfolioDetails"></div></article>
       </div></div>
       <div id="staff-matching" class="staff-panel" style="display:none"><p class="hint">Il calcolo distingue la casa com’è oggi dal suo potenziale dopo gli interventi. Costi accessori, finanziamento e verifiche mancanti restano sempre evidenziati.</p><div class="area-grid"><article class="area-card"><h3>Cliente → immobili</h3><select id="matchClient"></select><button class="primary" onclick="runClientMatch()">Calcola compatibilità</button><div id="clientMatchResults"></div></article><article class="area-card"><h3>Immobile → clienti</h3><select id="matchProperty"></select><button class="primary" onclick="runPropertyMatch()">Calcola compatibilità</button><div id="propertyMatchResults"></div></article></div></div>
       <div id="staff-deals" class="staff-panel" style="display:none"><div id="dealList"></div></div>
@@ -958,6 +973,8 @@ async function loadStaffAccountTools(){
     const panel=document.getElementById('staff-collaborators');
     const exportTab=document.getElementById('staffExportTab');
     const exportPanel=document.getElementById('staff-export');
+    const portfolioSave=document.getElementById('portfolioSaveBtn');
+    if(portfolioSave)portfolioSave.disabled=me.staff.role!=='admin';
     if(me.staff.role!=='admin'){
       if(tab)tab.style.display='none';
       if(panel)panel.style.display='none';
@@ -1058,6 +1075,7 @@ async function renderStaffServer(){
   try{await loadScenarios();}catch(_){const box=document.getElementById('scenarioList');if(box)box.innerHTML='<p>Scenari non disponibili.</p>';}
   try{await loadFeasibility();}catch(_){const box=document.getElementById('feasibilityList');if(box)box.innerHTML='<p>Analisi non disponibili.</p>';}
   try{await loadCashflow();}catch(_){const box=document.getElementById('cashflowList');if(box)box.innerHTML='<p>Piani di cassa non disponibili.</p>';}
+  try{await loadPortfolio();}catch(_){const box=document.getElementById('portfolioSummary');if(box)box.innerHTML='<p>Portafoglio non disponibile.</p>';}
   document.getElementById("dealList").innerHTML=deals.map(d=>`<div class="list-row"><b>${d.ref}</b><br>${clients.find(c=>c.id===d.client_id)?.name||"—"} · ${d.stage}</div>`).join("")||"<p>Nessuna trattativa.</p>";
 
   const dc=document.getElementById("docClient");
@@ -1294,6 +1312,30 @@ window.openCashflow=async function(id){try{const d=await api(`/api/staff/cashflo
 window.addCashMovement=async function(id){const value=key=>document.getElementById(key)?.value??'';const payload={month_index:Number(value('cashMovementMonth')),movement_type:value('cashMovementType'),category:value('cashMovementCategory'),description:value('cashMovementDescription').trim(),amount_min:Number(value('cashMovementMin')),amount_max:Number(value('cashMovementMax')),source:value('cashMovementSource').trim()||'Da verificare',reliability:value('cashMovementReliability')};try{await api(`/api/staff/cashflow/${id}/movements`,{method:'POST',body:JSON.stringify(payload)});await loadCashflow();await openCashflow(id);}catch(e){alert(e.message||'Movimento non valido.');}};
 window.deleteCashMovement=async function(planId,movementId){if(!confirm('Rimuovere questo movimento? Lo storico conserverà la modifica.'))return;try{await api(`/api/staff/cashflow/${planId}/movements/${movementId}`,{method:'DELETE',body:'{}'});await loadCashflow();await openCashflow(planId);}catch(e){alert(e.message||'Impossibile rimuovere il movimento.');}};
 window.archiveCashflow=async function(id){if(!confirm('Archiviare il piano senza cancellarne lo storico?'))return;try{await api(`/api/staff/cashflow/${id}/archive`,{method:'PATCH',body:JSON.stringify({archived:true})});document.getElementById('cashflowDetail').style.display='none';await loadCashflow();}catch(e){alert(e.message||'Impossibile archiviare il piano.');}};
+
+async function loadPortfolio(){
+  const d=await api('/api/staff/portfolio'),p=d.portfolio||{},s=p.settings||{};window.__portfolio=p;
+  const values={portfolioLiquidity:s.available_liquidity,portfolioReserve:s.minimum_liquidity_reserve,portfolioMaxExposure:s.max_ap_exposure,portfolioMaxConcurrent:s.max_concurrent_operations,portfolioNotes:s.notes};
+  Object.entries(values).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.value=value===null||value===undefined?'':value;});
+  renderPortfolio();
+}
+
+function renderPortfolio(){
+  const p=window.__portfolio||{},r=p.results||{},s=p.settings||{},summary=document.getElementById('portfolioSummary'),details=document.getElementById('portfolioDetails');if(!summary||!details)return;
+  const cases=(r.cases||[]).map(c=>`<div class="sum"><b>${escapeHtml(c.label)} · ${escapeHtml(c.decision)}</b><small>Assorbimento massimo ${matchMoney(c.peak_cash_absorption)} · Esposizione AP ${matchMoney(c.peak_ap_exposure)}<br>Mese critico ${escapeHtml(c.peak_month||'—')} · Operazioni simultanee ${Number(c.max_concurrent_operations||0)}<br>Liquidità residua minima ${matchMoney(c.minimum_remaining_liquidity)} · Fabbisogno senza copertura ${matchMoney(c.maximum_uncovered_need)}</small>${(c.breaches||[]).length?`<ul>${c.breaches.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`:''}</div>`).join('');
+  const doubleCase=(r.cases||[]).find(c=>c.key==='doppio_stress')||{},months=(doubleCase.months||[]).filter(m=>m.outflows||m.inflows||m.ap_exposure||m.concurrent_operations).map(m=>`<div class="sum"><b>${escapeHtml(m.month)} · ${Number(m.concurrent_operations)} operazioni</b><small>Entrate ${matchMoney(m.inflows)} · Uscite ${matchMoney(m.outflows)}<br>Assorbimento ${matchMoney(m.gross_cash_absorption)} · AP esposta ${matchMoney(m.ap_exposure)} · Credito usato ${matchMoney(m.credit_used)}<br>Liquidità residua ${matchMoney(m.remaining_liquidity)}</small></div>`).join('');
+  const plans=(r.plans||[]).map(x=>`<li>${escapeHtml(x.property_ref||'')} · ${escapeHtml(x.name)} · ${escapeHtml(x.start_month)}</li>`).join('')||'<li>Nessun piano di cassa attivo.</li>';
+  const missing=(doubleCase.missing_settings||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('');
+  const history=(p.revisions||[]).slice(0,5).map(x=>`<li>v${Number(x.version)} · ${escapeHtml(x.change_note)}</li>`).join('')||'<li>Nessuna configurazione salvata.</li>';
+  summary.innerHTML=`<div class="sum"><b>Decisione complessiva</b><strong>${escapeHtml(r.decision||'DA CONFIGURARE')}</strong><br><small>${Number(r.active_plan_count||0)} piani di cassa attivi · configurazione v${Number(s.version||0)}</small></div>${missing?`<div class="sum"><b>Limiti ancora da inserire</b><ul>${missing}</ul></div>`:''}`;
+  details.innerHTML=`<h4>Quattro prove di portafoglio</h4>${cases}<details open><summary>Operazioni comprese</summary><ul>${plans}</ul></details><details><summary>Calendario Doppio Stress</summary>${months||'<p>Nessun movimento.</p>'}</details><details><summary>Storico limiti</summary><ul>${history}</ul></details><p class="hint">L’assorbimento comprende capitale iniziale, eventuale credito utilizzato e fabbisogno ancora scoperto. Aggiornare sempre SAL e condizioni bancarie reali.</p>`;
+}
+
+window.savePortfolioSettings=async function(){
+  const raw=id=>document.getElementById(id)?.value??'',optional=id=>raw(id)===''?null:Number(raw(id)),msg=document.getElementById('portfolioFormMessage');
+  const payload={available_liquidity:optional('portfolioLiquidity'),minimum_liquidity_reserve:optional('portfolioReserve'),max_ap_exposure:optional('portfolioMaxExposure'),max_concurrent_operations:optional('portfolioMaxConcurrent'),notes:raw('portfolioNotes').trim(),change_note:raw('portfolioChangeNote').trim()};
+  try{if(msg)msg.textContent='Ricalcolo…';const d=await api('/api/staff/portfolio/settings',{method:'PATCH',body:JSON.stringify(payload)});window.__portfolio=d.portfolio;document.getElementById('portfolioChangeNote').value='';renderPortfolio();if(msg)msg.textContent='Limiti salvati e portafoglio ricalcolato.';}catch(e){if(msg)msg.textContent=e.message||'Impossibile salvare i limiti.';}
+};
 
 function matchMoney(value){return value===null||value===undefined?'Da verificare':'€'+Number(value).toLocaleString('it-IT');}
 function matchStatus(value){return ({compatibile:'Compatibile',non_compatibile:'Non compatibile',parziale:'Parziale',da_verificare:'Da verificare',entro_ideale:'Entro budget ideale',entro_massimo:'Entro budget massimo',con_flessibilita:'Con flessibilità',fuori_budget:'Fuori budget'})[value]||value||'Da verificare';}

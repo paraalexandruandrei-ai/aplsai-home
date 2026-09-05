@@ -273,6 +273,50 @@ def init_operational_export(app, app_module):
             row.change_note, _iso(row.created_at), row.snapshot_json,
         ) for row in cash_revisions])
 
+        portfolio_ext = app.extensions.get("aplsai_portfolio") or {}
+        portfolio_serializer = portfolio_ext.get("portfolio_dict")
+        portfolio = portfolio_serializer(include_history=True) if portfolio_serializer else {
+            "settings": {}, "results": {"cases": [], "plans": [], "decision": "Non disponibile"}, "revisions": [],
+        }
+        portfolio_settings = portfolio.get("settings") or {}
+        portfolio_results = portfolio.get("results") or {}
+        _sheet(wb, "Portafoglio", [
+            "Decisione", "Piani attivi", "Liquidità AP disponibile", "Riserva minima",
+            "Tetto esposizione AP", "Massimo operazioni simultanee", "Versione limiti", "Note",
+        ], [(
+            portfolio_results.get("decision"), portfolio_results.get("active_plan_count", 0),
+            portfolio_settings.get("available_liquidity"), portfolio_settings.get("minimum_liquidity_reserve"),
+            portfolio_settings.get("max_ap_exposure"), portfolio_settings.get("max_concurrent_operations"),
+            portfolio_settings.get("version", 0), portfolio_settings.get("notes", ""),
+        )])
+        _sheet(wb, "Stress portafoglio", [
+            "Scenario", "Decisione", "Assorbimento massimo", "Esposizione AP massima",
+            "Mese critico", "Operazioni simultanee massime", "Liquidità residua minima",
+            "Fabbisogno massimo senza copertura", "Limiti superati", "Piani incompleti",
+        ], [(
+            case.get("label"), case.get("decision"), case.get("peak_cash_absorption"),
+            case.get("peak_ap_exposure"), case.get("peak_month"), case.get("max_concurrent_operations"),
+            case.get("minimum_remaining_liquidity"), case.get("maximum_uncovered_need"),
+            ", ".join(case.get("breaches") or []), ", ".join(case.get("incomplete_plans") or []),
+        ) for case in portfolio_results.get("cases", [])])
+        _sheet(wb, "Portafoglio mensile", [
+            "Scenario", "Mese", "Entrate", "Uscite", "Assorbimento complessivo",
+            "Esposizione AP", "Credito utilizzato", "Fabbisogno senza copertura",
+            "Liquidità residua", "Operazioni simultanee", "Piani attivi",
+        ], [(
+            case.get("label"), month.get("month"), month.get("inflows"), month.get("outflows"),
+            month.get("gross_cash_absorption"), month.get("ap_exposure"), month.get("credit_used"),
+            month.get("uncovered_need"), month.get("remaining_liquidity"),
+            month.get("concurrent_operations"),
+            ", ".join(item.get("name", "") for item in month.get("active_plans") or []),
+        ) for case in portfolio_results.get("cases", []) for month in case.get("months", [])])
+        _sheet(wb, "Storico portafoglio", [
+            "ID revisione", "ID configurazione", "Versione", "ID autore", "Motivo", "Data", "Fotografia JSON",
+        ], [(
+            row.get("id"), row.get("settings_id"), row.get("version"), row.get("changed_by_user_id"),
+            row.get("change_note"), row.get("created_at"), json.dumps(row.get("snapshot") or {}, ensure_ascii=False),
+        ) for row in portfolio.get("revisions", [])])
+
         operations_ext = app.extensions.get("aplsai_operations") or {}
         Operation = operations_ext.get("ClientOperation")
         operations = Operation.query.order_by(Operation.client_id.asc()).all() if Operation else []
