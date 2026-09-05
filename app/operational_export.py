@@ -144,6 +144,43 @@ def init_operational_export(app, app_module):
             row.change_note, _iso(row.created_at), row.snapshot_json,
         ) for row in revisions])
 
+        opportunity_ext = app.extensions.get("aplsai_opportunities") or {}
+        Opportunity = opportunity_ext.get("PropertyOpportunity")
+        OpportunityRevision = opportunity_ext.get("OpportunityRevision")
+        opportunity_serializer = opportunity_ext.get("opportunity_dict")
+        opportunities = Opportunity.query.order_by(Opportunity.id.asc()).all() if Opportunity else []
+        opportunity_data = [(row, opportunity_serializer(row, include_details=True)) for row in opportunities] if opportunity_serializer else []
+        _sheet(wb, "Opportunità immobiliari", [
+            "ID", "Titolo", "Tipo fonte", "Fonte", "Collegamento", "Riferimento fonte",
+            "Contatto", "Recapito", "Zona", "Indirizzo", "Prezzo", "Mq", "Tipologia",
+            "Stato immobile", "Disponibilità", "Documenti", "Planimetria", "Analisi",
+            "Affidabilità", "Fase opportunità", "Rischi", "Potenziale", "Decisione",
+            "Nota decisionale", "Motivo esclusione", "Ultimo controllo", "ID immobile",
+            "Versione", "Archiviata il", "Aggiornata il", "Note",
+        ], [(
+            row.id, row.title, row.source_type, row.source_name, row.source_url, row.external_ref,
+            row.contact_name, row.contact_details, row.zone, row.address, row.price, row.sqm,
+            row.property_type, row.state, row.availability, row.documents_status,
+            row.planimetry_status, row.analysis_status, row.data_reliability, row.status,
+            row.risks, row.potential, row.decision, row.decision_note, row.rejection_reason,
+            row.last_checked_on.isoformat() if row.last_checked_on else "", row.linked_property_id,
+            row.version, _iso(row.archived_at), _iso(row.updated_at), row.notes,
+        ) for row in opportunities])
+        _sheet(wb, "Compatibilità opportunità", [
+            "ID opportunità", "Titolo", "ID cliente", "Cliente", "Esito preliminare", "Verifiche",
+        ], [(
+            row.id, row.title, match.get("client_id"), match.get("client_name"),
+            match.get("recommendation"),
+            "; ".join(f"{item.get('criterion')}: {item.get('status')}" for item in match.get("checks") or []),
+        ) for row, data in opportunity_data for match in data.get("preliminary_matches", [])])
+        opportunity_revisions = OpportunityRevision.query.order_by(OpportunityRevision.opportunity_id.asc(), OpportunityRevision.version.asc()).all() if OpportunityRevision else []
+        _sheet(wb, "Storico opportunità", [
+            "ID revisione", "ID opportunità", "Versione", "ID autore", "Motivo", "Data", "Fotografia JSON",
+        ], [(
+            row.id, row.opportunity_id, row.version, row.changed_by_user_id,
+            row.change_note, _iso(row.created_at), row.snapshot_json,
+        ) for row in opportunity_revisions])
+
         scenario_ext = app.extensions.get("aplsai_scenarios") or {}
         Scenario = scenario_ext.get("PropertyScenario")
         CostItem = scenario_ext.get("ScenarioCostItem")

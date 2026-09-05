@@ -11,12 +11,14 @@ ROUTE_PERMISSIONS = {
     "/api/staff/documents": "document_share",
     "/api/staff/portfolio": "portfolio_read",
     "/api/staff/capacity": "capacity_read",
+    "/api/staff/opportunities": "opportunity_manage",
 }
 
 PREFIX_PERMISSIONS = {
     "/api/staff/match/": "matching_run",
     "/api/staff/portfolio/": "portfolio_manage",
     "/api/staff/capacity/": "capacity_manage",
+    "/api/staff/opportunities/": "opportunity_manage",
 }
 
 

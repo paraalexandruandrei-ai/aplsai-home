@@ -27,6 +27,7 @@ from app.feasibility import init_feasibility
 from app.cashflow import init_cashflow
 from app.portfolio import init_portfolio
 from app.capacity import init_capacity
+from app.opportunities import init_opportunities
 
 
 class OperatorAccountsCheck(unittest.TestCase):
@@ -45,6 +46,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         init_cashflow(cls.app, app_module)
         init_portfolio(cls.app, app_module)
         init_capacity(cls.app, app_module)
+        init_opportunities(cls.app, app_module)
 
         with cls.app.app_context():
             for role, email in [
@@ -320,6 +322,9 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertIn("Assegnazioni operative", workbook.sheetnames)
         self.assertIn("Capacità mensile", workbook.sheetnames)
         self.assertIn("Storico squadre", workbook.sheetnames)
+        self.assertIn("Opportunità immobiliari", workbook.sheetnames)
+        self.assertIn("Compatibilità opportunità", workbook.sheetnames)
+        self.assertIn("Storico opportunità", workbook.sheetnames)
         headers = [cell.value for cell in next(workbook["Immobili"].iter_rows(max_row=1))]
         self.assertIn("Trasformabilità", headers)
         self.assertIn("Costo lavori minimo", headers)
@@ -676,6 +681,75 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertEqual(deleted.status_code, 200, deleted.get_json())
         with self.app.app_context():
             self.assertIsNone(app_module.db.session.get(app_module.User, client_id))
+
+    def test_opportunity_inbox_duplicate_match_and_promotion_gate(self):
+        registration = self.app.test_client().post("/api/register", json={
+            "name": "Cliente Opportunità", "email": "opportunity-client@example.com",
+            "phone": "+393339998877", "password": "Opportunity12345",
+            "profile": {
+                "zone": {"main": "Roma Nord", "km": 15},
+                "budget": {"ideal": 260000, "max": 300000, "flex": 5},
+                "spaces": {"sqm": 70, "beds": 2, "baths": 1},
+                "timing": "3-6 mesi", "style": "Moderno",
+                "must": [], "houseTypes": ["Appartamento"], "purchase": ["Da ristrutturare"],
+            },
+        })
+        self.assertEqual(registration.status_code, 201, registration.get_json())
+        client_id = registration.get_json()["client"]["id"]
+        admin = self.login_admin()
+        payload = {
+            "title": "Annuncio Roma Nord", "source_type": "Portale",
+            "source_name": "Fonte di prova", "source_url": "https://example.com/annuncio/123/?utm_source=test",
+            "external_ref": "ANN-123", "zone": "Roma Nord", "address": "Via di prova 1",
+            "price": 250000, "sqm": 75, "property_type": "Appartamento",
+            "state": "Da ristrutturare", "availability": "Disponibile",
+            "last_checked_on": "2026-09-05", "status": "Nuova",
+            "documents_status": "Da verificare", "planimetry_status": "Da verificare",
+            "analysis_status": "Non iniziata", "data_reliability": "Dichiarato",
+            "decision": "Da decidere", "notes": "Dati esclusivamente di collaudo.",
+        }
+        created = admin.post("/api/staff/opportunities", json=payload)
+        self.assertEqual(created.status_code, 201, created.get_json())
+        opportunity = created.get_json()["opportunity"]
+        opportunity_id = opportunity["id"]
+        preliminary = next(row for row in opportunity["preliminary_matches"] if row["client_id"] == client_id)
+        self.assertEqual(preliminary["recommendation"], "COMPATIBILITÀ PRELIMINARE")
+
+        duplicate = dict(payload)
+        duplicate["source_url"] = "https://example.com/annuncio/123?utm_campaign=copy"
+        duplicate["external_ref"] = "ANN-124"
+        self.assertEqual(admin.post("/api/staff/opportunities", json=duplicate).status_code, 409)
+
+        blocked = admin.post(f"/api/staff/opportunities/{opportunity_id}/promote", json={})
+        self.assertEqual(blocked.status_code, 409, blocked.get_json())
+        self.assertIn("analisi preliminare", blocked.get_json()["missing"])
+
+        invalid_decision = admin.patch(f"/api/staff/opportunities/{opportunity_id}", json={
+            "decision": "Non procedere", "rejection_reason": "",
+        })
+        self.assertEqual(invalid_decision.status_code, 400, invalid_decision.get_json())
+
+        updated = admin.patch(f"/api/staff/opportunities/{opportunity_id}", json={
+            "status": "Analisi tecnica", "documents_status": "Parziali",
+            "planimetry_status": "Disponibile", "analysis_status": "Preliminare completata",
+            "decision": "Procedere", "decision_note": "Compatibile con domanda e budget; proseguire con verifiche complete.",
+            "change_note": "Controllo preliminare completato",
+        })
+        self.assertEqual(updated.status_code, 200, updated.get_json())
+        self.assertEqual(updated.get_json()["opportunity"]["version"], 2)
+
+        promoted = admin.post(f"/api/staff/opportunities/{opportunity_id}/promote", json={})
+        self.assertEqual(promoted.status_code, 201, promoted.get_json())
+        property_id = promoted.get_json()["property"]["id"]
+        self.assertEqual(promoted.get_json()["property"]["ref"], f"OPP-{opportunity_id:05d}")
+        self.assertEqual(promoted.get_json()["property"]["technical_verification"], "Verifica in corso")
+        self.assertEqual(promoted.get_json()["opportunity"]["linked_property_id"], property_id)
+        self.assertEqual([row["version"] for row in promoted.get_json()["opportunity"]["revisions"][:3]], [3, 2, 1])
+        self.assertEqual(admin.post(f"/api/staff/opportunities/{opportunity_id}/promote", json={}).status_code, 409)
+
+        property_matches = admin.get(f"/api/staff/match/property/{property_id}")
+        self.assertEqual(property_matches.status_code, 200, property_matches.get_json())
+        self.assertIn(client_id, [row["client"]["id"] for row in property_matches.get_json()["results"]])
 
 
 if __name__ == "__main__":
