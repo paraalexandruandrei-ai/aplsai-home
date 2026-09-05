@@ -309,6 +309,11 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertFalse(registration.get_json()["client"]["is_test"])
 
         admin = self.login_admin()
+        protected = admin.delete(f"/api/admin/clients/{client_id}/test-data", json={
+            "confirm": "ELIMINA",
+        })
+        self.assertEqual(protected.status_code, 409)
+
         marked = admin.patch(f"/api/admin/clients/{client_id}/classification", json={
             "is_test": True, "archived": False,
         })
@@ -329,6 +334,13 @@ class OperatorAccountsCheck(unittest.TestCase):
             f"/api/admin/clients/{client_id}/classification",
             json={"is_test": False, "archived": False},
         ).status_code, 403)
+
+        deleted = admin.delete(f"/api/admin/clients/{client_id}/test-data", json={
+            "confirm": "ELIMINA",
+        })
+        self.assertEqual(deleted.status_code, 200, deleted.get_json())
+        with self.app.app_context():
+            self.assertIsNone(app_module.db.session.get(app_module.User, client_id))
 
 
 if __name__ == "__main__":

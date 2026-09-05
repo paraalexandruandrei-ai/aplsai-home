@@ -981,7 +981,7 @@ window.openServerClient=function(id){
      <div class="sum"><b>Tipo dato</b>${p.is_test?'Prova':'Cliente reale'}${p.archived_at?' · Archiviato':''}</div>
      <div class="sum"><b>Strategia</b>${p.preferred_strategy||"—"}</div>
      <div class="sum"><b>Stato</b>${p.status}</div>
-     ${window.__staffRole==='admin'?`<button class="secondary full" onclick="setClientClassification(${Number(p.id)},${!p.is_test},${!!p.archived_at})">${p.is_test?'Trasforma in cliente reale':'Segna come dato di prova'}</button><button class="secondary full" onclick="setClientClassification(${Number(p.id)},${!!p.is_test},${!p.archived_at})">${p.archived_at?'Ripristina cliente':'Archivia senza eliminare'}</button>`:''}`;
+     ${window.__staffRole==='admin'?`<button class="secondary full" onclick="setClientClassification(${Number(p.id)},${!p.is_test},${!!p.archived_at})">${p.is_test?'Trasforma in cliente reale':'Segna come dato di prova'}</button><button class="secondary full" onclick="setClientClassification(${Number(p.id)},${!!p.is_test},${!p.archived_at})">${p.archived_at?'Ripristina cliente':'Archivia senza eliminare'}</button>${p.is_test?`<button class="secondary full" style="color:#8b1e1e;border-color:#8b1e1e" onclick="deleteTestClient(${Number(p.id)})">Elimina definitivamente questa prova</button>`:''}`:''}`;
 };
 
 window.setClientClassification=async function(id,isTest,archived){
@@ -993,6 +993,16 @@ window.setClientClassification=async function(id,isTest,archived){
     renderClientRegistry();
     openServerClient(id);
   }catch(e){alert(e.message||'Impossibile aggiornare il cliente.');}
+};
+
+window.deleteTestClient=async function(id){
+  if(!confirm('Eliminare definitivamente questo dato di prova e tutte le informazioni collegate?'))return;
+  try{
+    await api('/api/admin/clients/'+encodeURIComponent(id)+'/test-data',{method:'DELETE',body:JSON.stringify({confirm:'ELIMINA'})});
+    window.__staffServer.clients=(window.__staffServer?.clients||[]).filter(x=>Number(x.id)!==Number(id));
+    document.getElementById('staffClientDetail').textContent='Dato di prova eliminato.';
+    renderClientRegistry();
+  }catch(e){alert(e.message||'Impossibile eliminare il dato di prova.');}
 };
 
 saveProperty=async function(){
