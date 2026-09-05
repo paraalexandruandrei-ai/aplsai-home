@@ -92,6 +92,30 @@ class StaffProtocolCheck(unittest.TestCase):
         })
         self.assertEqual(response.status_code, 403)
 
+    def test_pending_protocol_blocks_operator_work_until_acknowledged(self):
+        operator = self.role_client("protocol-operator@example.com")
+        blocked = operator.post("/api/staff/properties", json={})
+        self.assertEqual(blocked.status_code, 428, blocked.get_json())
+        self.assertEqual(blocked.get_json().get("code"), "STAFF_PROTOCOL_REQUIRED")
+        self.assertTrue(blocked.get_json().get("pending_rules"))
+
+        protocol = operator.get("/api/staff/protocol").get_json()
+        for rule in protocol["rules"]:
+            if rule["mandatory"] and not rule["acknowledged"]:
+                acknowledged = operator.post(f"/api/staff/protocol/{rule['id']}/acknowledge", json={})
+                self.assertEqual(acknowledged.status_code, 200, acknowledged.get_json())
+
+        passed_gate = operator.post("/api/staff/properties", json={})
+        self.assertNotEqual(passed_gate.status_code, 428, passed_gate.get_json())
+
+    def test_admin_can_monitor_operator_compliance(self):
+        admin = self.role_client("protocol-admin@example.com")
+        response = admin.get("/api/admin/staff-compliance")
+        self.assertEqual(response.status_code, 200, response.get_json())
+        operator = next(row for row in response.get_json()["operators"] if row["email"] == "protocol-operator@example.com")
+        self.assertIn("compliant", operator)
+        self.assertEqual(operator["required"], operator["acknowledged"] + len(operator["pending"]))
+
 
 if __name__ == "__main__":
     unittest.main()

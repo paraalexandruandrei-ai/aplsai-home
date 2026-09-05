@@ -467,9 +467,12 @@ def init_operational_export(app, app_module):
         ) for row in rules])
         acknowledgements = Acknowledgement.query.order_by(Acknowledgement.rule_id.asc(), Acknowledgement.user_id.asc()).all() if Acknowledgement else []
         _sheet(wb, "Prese visione staff", [
-            "ID", "ID regola", "ID collaboratore", "Versione regola", "Confermata il",
+            "ID", "ID regola", "ID collaboratore", "Versione regola", "Versione attuale", "Valida", "Confermata il",
         ], [(
-            row.id, row.rule_id, row.user_id, row.rule_version, _iso(row.acknowledged_at),
+            row.id, row.rule_id, row.user_id, row.rule_version,
+            next((rule.version for rule in rules if rule.id == row.rule_id), ""),
+            bool(next((rule.version == row.rule_version for rule in rules if rule.id == row.rule_id), False)),
+            _iso(row.acknowledged_at),
         ) for row in acknowledgements])
         Audit = operations_ext.get("AuditEvent")
         events = Audit.query.order_by(Audit.id.asc()).all() if Audit else []

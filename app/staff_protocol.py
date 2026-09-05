@@ -86,6 +86,22 @@ def init_staff_protocol(app, app_module):
             return actor.role == "staff"
         return actor.role == "operator"
 
+    def required_rules_for(user):
+        return [
+            row for row in StaffRule.query.filter_by(active=True, mandatory=True).order_by(StaffRule.sort_order.asc()).all()
+            if applies(row, user)
+        ]
+
+    def pending_rules_for(user):
+        required = required_rules_for(user)
+        if not required:
+            return []
+        acknowledged = {
+            (row.rule_id, row.rule_version)
+            for row in StaffRuleAcknowledgement.query.filter_by(user_id=user.id).all()
+        }
+        return [row for row in required if (row.id, row.version) not in acknowledged]
+
     def rule_dict(rule, actor=None):
         acknowledged = False
         acknowledged_at = None
@@ -142,9 +158,11 @@ def init_staff_protocol(app, app_module):
         query = StaffRule.query
         if not include_inactive:
             query = query.filter_by(active=True)
-        rows = [row for row in query.order_by(StaffRule.sort_order.asc(), StaffRule.id.asc()).all() if applies(row, actor)]
+        management_view = include_inactive and has_permission(actor.role, "protocol_manage")
+        all_rows = query.order_by(StaffRule.sort_order.asc(), StaffRule.id.asc()).all()
+        rows = all_rows if management_view else [row for row in all_rows if applies(row, actor)]
         data = [rule_dict(row, actor) for row in rows]
-        mandatory = [row for row in data if row["mandatory"]]
+        mandatory = [row for row, source in zip(data, rows) if row["mandatory"] and source.active and applies(source, actor)]
         return jsonify(rules=data, summary={
             "total": len(data), "mandatory": len(mandatory),
             "acknowledged": sum(row["acknowledged"] for row in mandatory),
@@ -186,6 +204,55 @@ def init_staff_protocol(app, app_module):
         db.session.commit()
         return jsonify(rule=rule_dict(rule, actor))
 
+    @app.get("/api/admin/staff-compliance")
+    def staff_compliance():
+        actor, denied = staff_user("protocol_manage")
+        if denied:
+            return denied
+        operators = app_module.User.query.filter_by(role="operator").order_by(app_module.User.name.asc()).all()
+        results = []
+        for operator in operators:
+            required = required_rules_for(operator)
+            pending = pending_rules_for(operator)
+            acknowledged_at = [
+                row.acknowledged_at for row in StaffRuleAcknowledgement.query.filter_by(user_id=operator.id).all()
+                if row.acknowledged_at
+            ]
+            results.append({
+                "user_id": operator.id, "name": operator.name, "email": operator.email,
+                "active": bool(getattr(operator, "active", True)),
+                "required": len(required), "acknowledged": len(required) - len(pending),
+                "pending": [{"id": row.id, "title": row.title, "version": row.version} for row in pending],
+                "compliant": len(pending) == 0,
+                "last_acknowledged_at": max(acknowledged_at).isoformat() if acknowledged_at else None,
+            })
+        return jsonify(operators=results)
+
+    @app.before_request
+    def enforce_operator_protocol():
+        if request.method not in {"POST", "PUT", "PATCH", "DELETE"}:
+            return None
+        if not request.path.startswith("/api/staff/"):
+            return None
+        if request.path in {"/api/staff/login", "/api/staff/password"} or (
+            request.path.startswith("/api/staff/protocol/") and request.path.endswith("/acknowledge")
+        ):
+            return None
+        uid = session.get("uid")
+        actor = db.session.get(app_module.User, uid) if uid else None
+        if not actor or actor.role != "operator":
+            return None
+        pending = pending_rules_for(actor)
+        if not pending:
+            return None
+        audit(actor, "staff_action_blocked_protocol", "system", f"path={request.path}; pending={len(pending)}")
+        db.session.commit()
+        return jsonify(
+            error="Prima di continuare devi leggere e confermare le regole obbligatorie nella sezione Regole staff.",
+            code="STAFF_PROTOCOL_REQUIRED",
+            pending_rules=[{"id": row.id, "title": row.title, "version": row.version} for row in pending],
+        ), 428
+
     @app.post("/api/staff/protocol/<int:rule_id>/acknowledge")
     def rule_acknowledge(rule_id):
         actor, denied = staff_user("protocol_read")
@@ -206,5 +273,5 @@ def init_staff_protocol(app, app_module):
 
     app.extensions["aplsai_staff_protocol"] = {
         "StaffRule": StaffRule, "StaffRuleAcknowledgement": StaffRuleAcknowledgement,
-        "rule_dict": rule_dict,
+        "rule_dict": rule_dict, "pending_rules_for": pending_rules_for,
     }

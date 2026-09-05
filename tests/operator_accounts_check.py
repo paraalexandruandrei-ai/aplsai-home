@@ -68,6 +68,23 @@ class OperatorAccountsCheck(unittest.TestCase):
                         password_hash=generate_password_hash("RoleTest12345", method="scrypt"),
                     ))
             app_module.db.session.commit()
+            protocol = cls.app.extensions["aplsai_staff_protocol"]
+            StaffRule = protocol["StaffRule"]
+            StaffRuleAcknowledgement = protocol["StaffRuleAcknowledgement"]
+            operators = app_module.User.query.filter_by(role="operator").all()
+            rules = StaffRule.query.filter_by(active=True, mandatory=True).filter(
+                StaffRule.audience.in_(["Tutto lo staff", "Operatori"])
+            ).all()
+            for operator in operators:
+                for rule in rules:
+                    existing = StaffRuleAcknowledgement.query.filter_by(
+                        rule_id=rule.id, user_id=operator.id, rule_version=rule.version,
+                    ).first()
+                    if not existing:
+                        app_module.db.session.add(StaffRuleAcknowledgement(
+                            rule_id=rule.id, user_id=operator.id, rule_version=rule.version,
+                        ))
+            app_module.db.session.commit()
 
     @classmethod
     def tearDownClass(cls):
