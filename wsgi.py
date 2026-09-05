@@ -10,6 +10,7 @@ from app.operational_export import init_operational_export
 from app.client_classification import init_client_classification
 from app.property_profiles import init_property_profiles
 from app.scenarios import init_scenarios
+from app.feasibility import init_feasibility
 
 app = app_module.create_app()
 init_operations(app, app_module)
@@ -21,6 +22,7 @@ init_operational_export(app, app_module)
 init_client_classification(app, app_module)
 init_property_profiles(app, app_module)
 init_scenarios(app, app_module)
+init_feasibility(app, app_module)
 
 
 def _sanitize_value(value, key=None):

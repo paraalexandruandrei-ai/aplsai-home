@@ -23,6 +23,7 @@ from app.operational_export import init_operational_export
 from app.client_classification import init_client_classification
 from app.property_profiles import init_property_profiles
 from app.scenarios import init_scenarios
+from app.feasibility import init_feasibility
 
 
 class OperatorAccountsCheck(unittest.TestCase):
@@ -37,6 +38,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         init_client_classification(cls.app, app_module)
         init_property_profiles(cls.app, app_module)
         init_scenarios(cls.app, app_module)
+        init_feasibility(cls.app, app_module)
 
         with cls.app.app_context():
             for role, email in [
@@ -296,6 +298,9 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertIn("Scenari", workbook.sheetnames)
         self.assertIn("Costi scenari", workbook.sheetnames)
         self.assertIn("Storico scenari", workbook.sheetnames)
+        self.assertIn("Fattibilità operazioni", workbook.sheetnames)
+        self.assertIn("Stress test", workbook.sheetnames)
+        self.assertIn("Storico fattibilità", workbook.sheetnames)
         headers = [cell.value for cell in next(workbook["Immobili"].iter_rows(max_row=1))]
         self.assertIn("Trasformabilità", headers)
         self.assertIn("Costo lavori minimo", headers)
@@ -419,6 +424,52 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertEqual(scenario_detail.status_code, 200, scenario_detail.get_json())
         self.assertEqual([row["version"] for row in scenario_detail.get_json()["scenario"]["revisions"][:3]], [3, 2, 1])
 
+        for category in ("Tecnici e pratiche", "Imposte, notaio e agenzia", "Costi finanziari", "Fondo imprevisti"):
+            added = admin.post(f"/api/staff/scenarios/{scenario_id}/cost-items", json={
+                "category": category, "description": category, "quantity": 1,
+                "unit": "corpo", "unit_price_min": 1000, "unit_price_max": 1000,
+                "source": "Ipotesi test", "reliability": "Dichiarato",
+            })
+            self.assertEqual(added.status_code, 201, added.get_json())
+
+        assumptions = {
+            "base": {"revenue_reduction_percent": 0, "cost_increase_percent": 0, "delay_months": 0},
+            "prudente": {"revenue_reduction_percent": 5, "cost_increase_percent": 5, "delay_months": 2},
+            "stress": {"revenue_reduction_percent": 10, "cost_increase_percent": 10, "delay_months": 4},
+            "doppio_stress": {"revenue_reduction_percent": 20, "cost_increase_percent": 20, "delay_months": 8},
+        }
+        analysis_created = admin.post("/api/staff/feasibility", json={
+            "property_id": property_id, "scenario_id": scenario_id,
+            "name": "Tenuta operazione", "status": "Da verificare",
+            "expected_sale_value": 340000, "other_income": 0,
+            "ap_capital": 100000, "external_financing": 100000,
+            "risk_budget": 20000, "target_margin_percent": 10,
+            "base_duration_months": 7, "assumptions": assumptions,
+            "notes": "Valori di prova per collaudo.",
+        })
+        self.assertEqual(analysis_created.status_code, 201, analysis_created.get_json())
+        analysis = analysis_created.get_json()["analysis"]
+        analysis_id = analysis["id"]
+        self.assertEqual(analysis["results"]["decision"], "NO-GO / RISTRUTTURARE")
+        self.assertEqual(analysis["results"]["known_cost_base"], 297300)
+        double_stress = next(row for row in analysis["results"]["cases"] if row["key"] == "doppio_stress")
+        self.assertEqual(double_stress["profit"], -36760)
+        self.assertEqual(double_stress["risk_status"], "superato")
+        self.assertEqual(double_stress["maximum_acquisition_price"], 176040)
+
+        invalid_assumptions = dict(assumptions)
+        invalid_assumptions["stress"] = {"revenue_reduction_percent": 2, "cost_increase_percent": 2, "delay_months": 1}
+        invalid_analysis = admin.patch(f"/api/staff/feasibility/{analysis_id}", json={"assumptions": invalid_assumptions})
+        self.assertEqual(invalid_analysis.status_code, 400, invalid_analysis.get_json())
+
+        analysis_updated = admin.patch(f"/api/staff/feasibility/{analysis_id}", json={
+            "expected_sale_value": 345000, "change_note": "Aggiornato valore di uscita",
+        })
+        self.assertEqual(analysis_updated.status_code, 200, analysis_updated.get_json())
+        self.assertEqual(analysis_updated.get_json()["analysis"]["version"], 2)
+        analysis_detail = admin.get(f"/api/staff/feasibility/{analysis_id}")
+        self.assertEqual([row["version"] for row in analysis_detail.get_json()["analysis"]["revisions"][:2]], [2, 1])
+
         detail = admin.get(f"/api/staff/properties/{property_id}")
         self.assertEqual(detail.status_code, 200, detail.get_json())
         revisions = detail.get_json()["revisions"]
@@ -438,6 +489,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         deleted = admin.delete(f"/api/admin/clients/{client_id}/test-data", json={"confirm": "ELIMINA"})
         self.assertEqual(deleted.status_code, 200, deleted.get_json())
         self.assertEqual(admin.get(f"/api/staff/scenarios/{scenario_id}").status_code, 404)
+        self.assertEqual(admin.get(f"/api/staff/feasibility/{analysis_id}").status_code, 404)
 
     def test_admin_can_separate_test_clients_and_archive_without_deleting(self):
         profile = {

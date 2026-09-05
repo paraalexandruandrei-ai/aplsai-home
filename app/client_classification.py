@@ -95,6 +95,9 @@ def init_client_classification(app, app_module):
         Scenario = scenario_ext.get("PropertyScenario")
         CostItem = scenario_ext.get("ScenarioCostItem")
         ScenarioRevision = scenario_ext.get("ScenarioRevision")
+        feasibility_ext = app.extensions.get("aplsai_feasibility") or {}
+        Analysis = feasibility_ext.get("FeasibilityAnalysis")
+        AnalysisRevision = feasibility_ext.get("FeasibilityRevision")
 
         if Assignment is not None:
             Assignment.query.filter_by(client_id=client_id).delete(synchronize_session=False)
@@ -103,6 +106,12 @@ def init_client_classification(app, app_module):
         if Scenario is not None:
             scenario_ids = [row.id for row in Scenario.query.filter_by(client_id=client_id).all()]
             if scenario_ids:
+                if Analysis is not None:
+                    analysis_ids = [row.id for row in Analysis.query.filter(Analysis.scenario_id.in_(scenario_ids)).all()]
+                    if analysis_ids and AnalysisRevision is not None:
+                        AnalysisRevision.query.filter(AnalysisRevision.analysis_id.in_(analysis_ids)).delete(synchronize_session=False)
+                    if analysis_ids:
+                        Analysis.query.filter(Analysis.id.in_(analysis_ids)).delete(synchronize_session=False)
                 if CostItem is not None:
                     CostItem.query.filter(CostItem.scenario_id.in_(scenario_ids)).delete(synchronize_session=False)
                 if ScenarioRevision is not None:

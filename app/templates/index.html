@@ -295,6 +295,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         <button class="staff-tab" onclick="staffTab('clients',this)">Clienti</button>
         <button class="staff-tab" onclick="staffTab('properties',this)">Immobili</button>
         <button class="staff-tab" onclick="staffTab('scenarios',this)">Scenari</button>
+        <button class="staff-tab" onclick="staffTab('feasibility',this)">Fattibilità</button>
         <button class="staff-tab" onclick="staffTab('matching',this)">Matching</button>
         <button class="staff-tab" onclick="staffTab('deals',this)">Trattative</button><button class="staff-tab" onclick="staffTab('referrals',this)">Referral</button><button class="staff-tab" onclick="staffTab('documents',this)">Documenti</button><button class="staff-tab" id="staffCollaboratorsTab" onclick="staffTab('collaborators',this)">Collaboratori</button><button class="staff-tab" id="staffExportTab" onclick="staffTab('export',this)">Esportazione</button><button class="staff-tab" onclick="staffTab('security',this)">Sicurezza</button>
       </div>
@@ -374,6 +375,30 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
           <button class="secondary full" id="scenarioCancelBtn" style="display:none" onclick="resetScenarioForm()">Annulla modifica</button>
         </article>
         <article class="area-card"><h3>Scenari progettuali</h3><p class="hint">I totali restano parziali finché tutte le categorie obbligatorie non sono compilate.</p><div id="scenarioList"></div><div id="scenarioDetail" class="list-row" style="display:none"></div></article>
+      </div></div>
+      <div id="staff-feasibility" class="staff-panel" style="display:none"><div class="area-grid">
+        <article class="area-card"><h3 id="feasibilityFormTitle">Nuova analisi economica</h3>
+          <input id="feasibilityId" type="hidden">
+          <label>Scenario progettuale</label><select id="feasibilityScenario"></select>
+          <label>Nome analisi</label><input id="feasibilityName" placeholder="Es. Operazione Roma Nord">
+          <label>Valore di vendita atteso</label><input id="feasibilitySale" type="number" min="0" placeholder="Euro">
+          <label>Altri ricavi</label><input id="feasibilityOtherIncome" type="number" min="0" value="0">
+          <label>Capitale AP disponibile</label><input id="feasibilityCapital" type="number" min="0" placeholder="Euro">
+          <label>Finanziamento esterno disponibile</label><input id="feasibilityFinance" type="number" min="0" value="0">
+          <label>Risk Budget – perdita massima sostenibile</label><input id="feasibilityRisk" type="number" min="0" placeholder="Euro">
+          <label>Margine obiettivo sui ricavi</label><input id="feasibilityMargin" type="number" min="0" max="100" placeholder="Percentuale">
+          <label>Durata Base</label><input id="feasibilityDuration" type="number" min="1" placeholder="Mesi">
+          <details open><summary>Ipotesi Prudente</summary><label>Riduzione ricavi %</label><input id="prudRevenue" type="number" min="0" max="100"><label>Aumento costi %</label><input id="prudCost" type="number" min="0"><label>Ritardo mesi</label><input id="prudDelay" type="number" min="0"></details>
+          <details><summary>Ipotesi Stress</summary><label>Riduzione ricavi %</label><input id="stressRevenue" type="number" min="0" max="100"><label>Aumento costi %</label><input id="stressCost" type="number" min="0"><label>Ritardo mesi</label><input id="stressDelay" type="number" min="0"></details>
+          <details><summary>Ipotesi Doppio Stress</summary><label>Riduzione ricavi %</label><input id="doubleRevenue" type="number" min="0" max="100"><label>Aumento costi %</label><input id="doubleCost" type="number" min="0"><label>Ritardo mesi</label><input id="doubleDelay" type="number" min="0"></details>
+          <label>Stato analisi</label><select id="feasibilityStatus"><option>Bozza</option><option selected>Da verificare</option><option>Validata</option><option>Approvata</option><option>Respinta</option></select>
+          <label>Note e fonti</label><textarea id="feasibilityNotes" rows="3" placeholder="Fonti dei ricavi, limiti e verifiche"></textarea>
+          <label>Motivo modifica</label><input id="feasibilityChangeNote" placeholder="Es. aggiornato prezzo di vendita">
+          <p class="hint">Le percentuali non sono precompilate: devono essere deliberate per ogni operazione.</p>
+          <button class="primary full" id="feasibilitySaveBtn" onclick="saveFeasibility()">Calcola fattibilità</button>
+          <button class="secondary full" id="feasibilityCancelBtn" style="display:none" onclick="resetFeasibilityForm()">Annulla modifica</button>
+        </article>
+        <article class="area-card"><h3>Analisi delle operazioni</h3><div id="feasibilityList"></div><div id="feasibilityDetail" class="list-row" style="display:none"></div></article>
       </div></div>
       <div id="staff-matching" class="staff-panel" style="display:none"><p class="hint">Il calcolo distingue la casa com’è oggi dal suo potenziale dopo gli interventi. Costi accessori, finanziamento e verifiche mancanti restano sempre evidenziati.</p><div class="area-grid"><article class="area-card"><h3>Cliente → immobili</h3><select id="matchClient"></select><button class="primary" onclick="runClientMatch()">Calcola compatibilità</button><div id="clientMatchResults"></div></article><article class="area-card"><h3>Immobile → clienti</h3><select id="matchProperty"></select><button class="primary" onclick="runPropertyMatch()">Calcola compatibilità</button><div id="propertyMatchResults"></div></article></div></div>
       <div id="staff-deals" class="staff-panel" style="display:none"><div id="dealList"></div></div>
@@ -1013,6 +1038,7 @@ async function renderStaffServer(){
   document.getElementById("scenarioProperty").innerHTML=activeProps.map(p=>`<option value="${p.id}">${escapeHtml(p.ref)} · ${escapeHtml(p.zone)}</option>`).join("");
   document.getElementById("scenarioClient").innerHTML='<option value="">Nessun cliente specifico</option>'+realClients.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
   try{await loadScenarios();}catch(_){const box=document.getElementById('scenarioList');if(box)box.innerHTML='<p>Scenari non disponibili.</p>';}
+  try{await loadFeasibility();}catch(_){const box=document.getElementById('feasibilityList');if(box)box.innerHTML='<p>Analisi non disponibili.</p>';}
   document.getElementById("dealList").innerHTML=deals.map(d=>`<div class="list-row"><b>${d.ref}</b><br>${clients.find(c=>c.id===d.client_id)?.name||"—"} · ${d.stage}</div>`).join("")||"<p>Nessuna trattativa.</p>";
 
   const dc=document.getElementById("docClient");
@@ -1210,6 +1236,31 @@ window.addScenarioCost=async function(id){
 
 window.deleteScenarioCost=async function(scenarioId,itemId){if(!confirm('Rimuovere questa voce di costo? Lo storico conserverà la modifica.'))return;try{await api(`/api/staff/scenarios/${scenarioId}/cost-items/${itemId}`,{method:'DELETE',body:'{}'});await loadScenarios();await openScenario(scenarioId);}catch(e){alert(e.message||'Impossibile rimuovere la voce.');}};
 window.archiveScenario=async function(id){if(!confirm('Archiviare lo scenario senza cancellarne lo storico?'))return;try{await api(`/api/staff/scenarios/${id}/archive`,{method:'PATCH',body:JSON.stringify({archived:true})});document.getElementById('scenarioDetail').style.display='none';await loadScenarios();}catch(e){alert(e.message||'Impossibile archiviare lo scenario.');}};
+
+async function loadFeasibility(){
+  const d=await api('/api/staff/feasibility');window.__feasibility=d.analyses||[];
+  const select=document.getElementById('feasibilityScenario');if(select)select.innerHTML=(window.__scenarios||[]).map(s=>`<option value="${Number(s.id)}">${escapeHtml(s.property_ref||'Immobile')} · ${escapeHtml(s.name)}</option>`).join('');
+  renderFeasibilityList();
+}
+
+function renderFeasibilityList(){const box=document.getElementById('feasibilityList');if(!box)return;box.innerHTML=(window.__feasibility||[]).map(a=>`<div class="list-row"><b>${escapeHtml(a.name)}</b><br>${escapeHtml(a.property_ref||'')} · ${escapeHtml(a.scenario_name||'')}<br><strong>${escapeHtml(a.results?.decision||'Da verificare')}</strong><br><small>Costi conosciuti ${matchMoney(a.results?.known_cost_base)} · v${Number(a.version)}</small><br><button class="secondary" onclick="openFeasibility(${Number(a.id)})">Apri analisi</button></div>`).join('')||'<p>Nessuna analisi economica creata.</p>';}
+
+function feasibilityAssumptions(){const number=id=>{const value=document.getElementById(id)?.value;return value===''?null:Number(value);};return {base:{revenue_reduction_percent:0,cost_increase_percent:0,delay_months:0},prudente:{revenue_reduction_percent:number('prudRevenue'),cost_increase_percent:number('prudCost'),delay_months:number('prudDelay')},stress:{revenue_reduction_percent:number('stressRevenue'),cost_increase_percent:number('stressCost'),delay_months:number('stressDelay')},doppio_stress:{revenue_reduction_percent:number('doubleRevenue'),cost_increase_percent:number('doubleCost'),delay_months:number('doubleDelay')}};}
+
+window.saveFeasibility=async function(){
+  const value=id=>document.getElementById(id)?.value??'',scenarioId=Number(value('feasibilityScenario')),scenario=(window.__scenarios||[]).find(s=>Number(s.id)===scenarioId);
+  if(!scenario){alert('Prima crea uno scenario progettuale.');return;}
+  const payload={property_id:scenario.property_id,scenario_id:scenarioId,name:value('feasibilityName').trim(),expected_sale_value:Number(value('feasibilitySale')),other_income:Number(value('feasibilityOtherIncome'))||0,ap_capital:Number(value('feasibilityCapital'))||0,external_financing:Number(value('feasibilityFinance'))||0,risk_budget:Number(value('feasibilityRisk'))||0,target_margin_percent:Number(value('feasibilityMargin'))||0,base_duration_months:Number(value('feasibilityDuration')),assumptions:feasibilityAssumptions(),status:value('feasibilityStatus'),notes:value('feasibilityNotes').trim(),change_note:value('feasibilityChangeNote').trim()};
+  const id=value('feasibilityId');try{const d=await api(id?`/api/staff/feasibility/${id}`:'/api/staff/feasibility',{method:id?'PATCH':'POST',body:JSON.stringify(payload)});resetFeasibilityForm();await loadFeasibility();await openFeasibility(d.analysis.id);}catch(e){alert(e.message||'Impossibile calcolare la fattibilità.');}
+};
+
+window.resetFeasibilityForm=function(){['feasibilityId','feasibilityName','feasibilitySale','feasibilityCapital','feasibilityRisk','feasibilityMargin','feasibilityDuration','prudRevenue','prudCost','prudDelay','stressRevenue','stressCost','stressDelay','doubleRevenue','doubleCost','doubleDelay','feasibilityNotes','feasibilityChangeNote'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('feasibilityOtherIncome').value='0';document.getElementById('feasibilityFinance').value='0';document.getElementById('feasibilityStatus').value='Da verificare';document.getElementById('feasibilityFormTitle').textContent='Nuova analisi economica';document.getElementById('feasibilitySaveBtn').textContent='Calcola fattibilità';document.getElementById('feasibilityCancelBtn').style.display='none';};
+
+window.editFeasibility=function(id){const a=(window.__feasibility||[]).find(x=>Number(x.id)===Number(id));if(!a)return;const p=a.assumptions||{},values={feasibilityId:a.id,feasibilityScenario:a.scenario_id,feasibilityName:a.name,feasibilitySale:a.expected_sale_value,feasibilityOtherIncome:a.other_income,feasibilityCapital:a.ap_capital,feasibilityFinance:a.external_financing,feasibilityRisk:a.risk_budget,feasibilityMargin:a.target_margin_percent,feasibilityDuration:a.base_duration_months,prudRevenue:p.prudente?.revenue_reduction_percent,prudCost:p.prudente?.cost_increase_percent,prudDelay:p.prudente?.delay_months,stressRevenue:p.stress?.revenue_reduction_percent,stressCost:p.stress?.cost_increase_percent,stressDelay:p.stress?.delay_months,doubleRevenue:p.doppio_stress?.revenue_reduction_percent,doubleCost:p.doppio_stress?.cost_increase_percent,doubleDelay:p.doppio_stress?.delay_months,feasibilityStatus:a.status,feasibilityNotes:a.notes};Object.entries(values).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.value=value??'';});document.getElementById('feasibilityFormTitle').textContent='Modifica analisi economica';document.getElementById('feasibilitySaveBtn').textContent='Ricalcola nuova versione';document.getElementById('feasibilityCancelBtn').style.display='block';document.getElementById('staff-feasibility').scrollIntoView({behavior:'smooth',block:'start'});};
+
+window.openFeasibility=async function(id){try{const d=await api(`/api/staff/feasibility/${id}`),a=d.analysis,r=a.results||{};const cases=(r.cases||[]).map(c=>`<div class="sum"><b>${escapeHtml(c.label)} · ${matchMoney(c.profit)}</b><small>Ricavi ${matchMoney(c.revenue)} · Costi ${matchMoney(c.total_cost)} · Margine ricavi ${c.margin_on_revenue_percent===null?'—':Number(c.margin_on_revenue_percent).toLocaleString('it-IT')+'%'}<br>ROI capitale AP ${c.roi_ap_percent===null?'—':Number(c.roi_ap_percent).toLocaleString('it-IT')+'%'} · Perdita ${matchMoney(c.loss)} · Risk Budget ${escapeHtml(c.risk_status)}<br>Fabbisogno cassa ${matchMoney(c.estimated_peak_cash_need)} · Scoperto ${matchMoney(c.funding_gap)} · Prezzo massimo acquisto ${matchMoney(c.maximum_acquisition_price)} · ${Number(c.duration_months)} mesi</small></div>`).join('');const missing=(r.missing_categories||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')||'<li>Nessuna categoria obbligatoria mancante.</li>';const history=(a.revisions||[]).slice(0,5).map(x=>`<li>v${Number(x.version)} · ${escapeHtml(x.change_note)}</li>`).join('');const box=document.getElementById('feasibilityDetail');box.style.display='block';box.innerHTML=`<h3>${escapeHtml(a.name)}</h3><small>${escapeHtml(a.property_ref||'')} · ${escapeHtml(a.scenario_name||'')} · v${Number(a.version)}</small><div class="sum"><b>Decisione</b><strong>${escapeHtml(r.decision||'Da verificare')}</strong><br><small>Motore ${escapeHtml(r.engine_version||'')}</small></div><div class="sum"><b>Categorie mancanti</b><ul>${missing}</ul></div><h4>Quattro prove di tenuta</h4>${cases}<details><summary>Storico versioni</summary><ul>${history}</ul></details><button class="primary full" onclick="editFeasibility(${Number(a.id)})">Modifica e ricalcola</button><button class="secondary full" onclick="archiveFeasibility(${Number(a.id)})">Archivia analisi</button>`;}catch(e){alert(e.message||'Impossibile aprire l’analisi.');}};
+
+window.archiveFeasibility=async function(id){if(!confirm('Archiviare questa analisi senza cancellarne lo storico?'))return;try{await api(`/api/staff/feasibility/${id}/archive`,{method:'PATCH',body:JSON.stringify({archived:true})});document.getElementById('feasibilityDetail').style.display='none';await loadFeasibility();}catch(e){alert(e.message||'Impossibile archiviare l’analisi.');}};
 
 function matchMoney(value){return value===null||value===undefined?'Da verificare':'€'+Number(value).toLocaleString('it-IT');}
 function matchStatus(value){return ({compatibile:'Compatibile',non_compatibile:'Non compatibile',parziale:'Parziale',da_verificare:'Da verificare',entro_ideale:'Entro budget ideale',entro_massimo:'Entro budget massimo',con_flessibilita:'Con flessibilità',fuori_budget:'Fuori budget'})[value]||value||'Da verificare';}
