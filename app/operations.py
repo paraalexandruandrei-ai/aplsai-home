@@ -126,7 +126,11 @@ def init_operations(app, app_module):
         if not u:
             return jsonify(error="Non autorizzato."), 401
         rows = []
-        for cp in app_module.ClientProfile.query.all():
+        profiles = app_module.ClientProfile.query.filter(
+            app_module.ClientProfile.is_test.is_(False),
+            app_module.ClientProfile.archived_at.is_(None),
+        ).all()
+        for cp in profiles:
             op = ClientOperation.query.filter_by(client_id=cp.user_id).first()
             if not op:
                 op = ClientOperation(client_id=cp.user_id)

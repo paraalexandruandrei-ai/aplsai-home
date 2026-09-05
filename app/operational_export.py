@@ -65,6 +65,7 @@ def init_operational_export(app, app_module):
             ("Generato il", generated_at.isoformat()),
             ("Origine", "Area Admin APLSAI HOME"),
             ("Regola aggiornamento", "Usare gli ID come chiave; aggiornare le righe esistenti senza duplicarle."),
+            ("Classificazione", "I dati di prova sono identificati e separati dai clienti reali."),
             ("Riservatezza", "Contiene dati personali: conservare in posizione protetta."),
         ])
 
@@ -72,9 +73,12 @@ def init_operational_export(app, app_module):
         clients = app_module.User.query.filter_by(role="client").order_by(app_module.User.id.asc()).all()
         _sheet(wb, "Clienti", [
             "ID cliente", "Nome", "Email", "Telefono", "Attivo", "Creato il",
-            "Stato", "Strategia", "Ultimo contatto", "Ultima proposta", "N. proposte",
+            "Tipo dato", "Archiviato il", "Stato", "Strategia", "Ultimo contatto",
+            "Ultima proposta", "N. proposte",
         ], [(
             u.id, u.name, u.email, u.phone, bool(getattr(u, "active", True)), _iso(u.created_at),
+            "Prova" if bool(getattr(profiles.get(u.id), "is_test", False)) else "Reale",
+            _iso(getattr(profiles.get(u.id), "archived_at", None)),
             profiles[u.id].status if u.id in profiles else "",
             profiles[u.id].preferred_strategy if u.id in profiles else "",
             _iso(profiles[u.id].last_contact_at) if u.id in profiles else "",
@@ -98,10 +102,16 @@ def init_operational_export(app, app_module):
                 data.get("style", ""), json.dumps(data, ensure_ascii=False),
             ))
         _sheet(wb, "Profili abitativi", [
-            "ID cliente", "Zona principale", "Distanza km", "Budget ideale", "Budget massimo",
+            "ID cliente", "Tipo dato", "Archiviato il", "Zona principale", "Distanza km",
+            "Budget ideale", "Budget massimo",
             "Flessibilità %", "Metratura", "Camere", "Bagni", "Indispensabili", "Tempistica",
             "Tipologie casa", "Stato acquisto", "Stile", "Profilo JSON originale",
-        ], profile_rows)
+        ], [(
+            row[0],
+            "Prova" if bool(getattr(profiles.get(row[0]), "is_test", False)) else "Reale",
+            _iso(getattr(profiles.get(row[0]), "archived_at", None)),
+            *row[1:],
+        ) for row in profile_rows])
 
         _sheet(wb, "Immobili", ["ID immobile", "Riferimento", "Zona", "Prezzo", "Mq", "Camere", "Bagni", "Stato", "Fonte", "Creato il"], [
             (p.id, p.ref, p.zone, p.price, p.sqm, p.beds, p.baths, p.state, p.source, _iso(p.created_at))
@@ -112,10 +122,14 @@ def init_operational_export(app, app_module):
         Operation = operations_ext.get("ClientOperation")
         operations = Operation.query.order_by(Operation.client_id.asc()).all() if Operation else []
         _sheet(wb, "Pratiche", [
-            "ID cliente", "Fase", "Stato finanziario", "Priorità", "Verificato il", "Prossima azione",
+            "ID cliente", "Tipo dato", "Archiviato il", "Fase", "Stato finanziario",
+            "Priorità", "Verificato il", "Prossima azione",
             "Scadenza", "Responsabile", "Motivo blocco", "Aggiornato il",
         ], [(
-            op.client_id, op.phase, op.financial_state, op.to_dict().get("priority", ""),
+            op.client_id,
+            "Prova" if bool(getattr(profiles.get(op.client_id), "is_test", False)) else "Reale",
+            _iso(getattr(profiles.get(op.client_id), "archived_at", None)),
+            op.phase, op.financial_state, op.to_dict().get("priority", ""),
             _iso(op.financial_verified_at), op.next_action, _iso(op.next_action_due_at),
             op.assigned_to, op.blocked_reason, _iso(op.updated_at),
         ) for op in operations])

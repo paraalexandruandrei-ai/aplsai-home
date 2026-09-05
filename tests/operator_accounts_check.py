@@ -18,6 +18,7 @@ from app.operations import init_operations
 from app.rbac_runtime import install_runtime_rbac
 from app.staff_accounts import init_staff_accounts
 from app.operational_export import init_operational_export
+from app.client_classification import init_client_classification
 
 
 class OperatorAccountsCheck(unittest.TestCase):
@@ -29,6 +30,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         install_runtime_rbac(cls.app, app_module)
         init_staff_accounts(cls.app, app_module)
         init_operational_export(cls.app, app_module)
+        init_client_classification(cls.app, app_module)
 
         with cls.app.app_context():
             for role, email in [
@@ -285,6 +287,48 @@ class OperatorAccountsCheck(unittest.TestCase):
 
         operator = self.role_client("existing-operator@example.com")
         self.assertEqual(operator.get("/api/admin/operational-export.xlsx").status_code, 403)
+
+    def test_admin_can_separate_test_clients_and_archive_without_deleting(self):
+        profile = {
+            "zone": {"main": "Roma", "km": 10},
+            "budget": {"ideal": 250000, "max": 300000, "flex": 5},
+            "spaces": {"sqm": 75, "beds": 2, "baths": 1},
+            "timing": "3-6 mesi", "style": "Moderno",
+            "must": ["Balcone"], "houseTypes": ["Appartamento"],
+            "purchase": ["Mutuo"],
+        }
+        registration = self.app.test_client().post("/api/register", json={
+            "name": "Cliente Classificazione",
+            "email": "classification-client@example.com",
+            "phone": "+393331234567",
+            "password": "Classification12345",
+            "profile": profile,
+        })
+        self.assertEqual(registration.status_code, 201, registration.get_json())
+        client_id = registration.get_json()["client"]["id"]
+        self.assertFalse(registration.get_json()["client"]["is_test"])
+
+        admin = self.login_admin()
+        marked = admin.patch(f"/api/admin/clients/{client_id}/classification", json={
+            "is_test": True, "archived": False,
+        })
+        self.assertEqual(marked.status_code, 200, marked.get_json())
+        self.assertTrue(marked.get_json()["client"]["is_test"])
+
+        operations = admin.get("/api/staff/operations").get_json()["results"]
+        self.assertNotIn(client_id, [row["client"]["id"] for row in operations])
+
+        archived = admin.patch(f"/api/admin/clients/{client_id}/classification", json={
+            "is_test": True, "archived": True,
+        })
+        self.assertEqual(archived.status_code, 200, archived.get_json())
+        self.assertIsNotNone(archived.get_json()["client"]["archived_at"])
+
+        operator = self.role_client("existing-operator@example.com")
+        self.assertEqual(operator.patch(
+            f"/api/admin/clients/{client_id}/classification",
+            json={"is_test": False, "archived": False},
+        ).status_code, 403)
 
 
 if __name__ == "__main__":

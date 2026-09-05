@@ -298,7 +298,9 @@ def create_app():
         if not p:
             return jsonify(error="Immobile non trovato."), 404
         rows = []
-        for cp in ClientProfile.query.all():
+        for cp in ClientProfile.query.filter(
+            ClientProfile.is_test.is_(False), ClientProfile.archived_at.is_(None)
+        ).all():
             c = client_obj(cp.user_id)
             sc, reason = match_score(c, p.to_dict())
             rows.append({"client": c, "score": sc, "reason": reason})
@@ -559,6 +561,8 @@ def client_obj(uid):
         days = max(0, (utcnow() - created).days)
     return {
         "id": u.id, "name": u.name, "email": u.email, "phone": u.phone,
+        "is_test": bool(getattr(cp, "is_test", False)),
+        "archived_at": cp.archived_at.isoformat() if getattr(cp, "archived_at", None) else None,
         "status": cp.status, "preferred_strategy": cp.preferred_strategy,
         "proposal_count": cp.proposal_count or 0, "days_aplsai": days,
         "updates": [x.to_dict() for x in Update.query.filter_by(client_id=uid).order_by(Update.created_at.desc()).all()],
@@ -615,6 +619,8 @@ class ClientProfile(db.Model):
     last_contact_at = db.Column(db.DateTime(timezone=True))
     last_proposal_at = db.Column(db.DateTime(timezone=True))
     proposal_count = db.Column(db.Integer, default=0)
+    is_test = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    archived_at = db.Column(db.DateTime(timezone=True))
 
 
 class Update(db.Model):

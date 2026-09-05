@@ -298,7 +298,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         <button class="staff-tab" onclick="staffTab('deals',this)">Trattative</button><button class="staff-tab" onclick="staffTab('referrals',this)">Referral</button><button class="staff-tab" onclick="staffTab('documents',this)">Documenti</button><button class="staff-tab" id="staffCollaboratorsTab" onclick="staffTab('collaborators',this)">Collaboratori</button><button class="staff-tab" id="staffExportTab" onclick="staffTab('export',this)">Esportazione</button><button class="staff-tab" onclick="staffTab('security',this)">Sicurezza</button>
       </div>
       <div id="staff-today" class="staff-panel"><div id="todayGrid" class="area-grid"></div></div>
-      <div id="staff-clients" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Clienti</h3><div id="staffClientList"></div></article><article class="area-card"><h3>Scheda cliente</h3><div id="staffClientDetail">Seleziona un cliente.</div></article></div></div>
+      <div id="staff-clients" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Clienti</h3><label>Visualizza</label><select id="clientDataFilter" onchange="renderClientRegistry()"><option value="real">Clienti reali</option><option value="test">Dati di prova</option><option value="archived">Archiviati</option><option value="all">Tutti</option></select><div id="staffClientList"></div></article><article class="area-card"><h3>Scheda cliente</h3><div id="staffClientDetail">Seleziona un cliente.</div></article></div></div>
       <div id="staff-properties" class="staff-panel" style="display:none"><div class="area-grid">
         <article class="area-card"><h3>Nuovo immobile</h3>
           <input id="propRef" placeholder="Riferimento">
@@ -845,6 +845,7 @@ function operatorRowHtml(op){
 async function loadStaffAccountTools(){
   try{
     const me=await api('/api/staff/me');
+    window.__staffRole=me.staff.role;
     const identity=document.getElementById('staffIdentity');
     if(identity)identity.textContent=`Accesso: ${me.staff.email} · ${me.staff.role==='admin'?'Admin':'Operatore'}`;
     const tab=document.getElementById('staffCollaboratorsTab');
@@ -860,6 +861,7 @@ async function loadStaffAccountTools(){
     }
     if(tab)tab.style.display='';
     if(exportTab)exportTab.style.display='';
+    if(typeof renderClientRegistry==='function')renderClientRegistry();
     await loadOperators();
   }catch(_){}
 }
@@ -922,33 +924,33 @@ async function renderStaffServer(){
   const d=await api("/api/staff/dashboard");
   window.__staffServer=d;
   const clients=d.clients||[], props=d.properties||[], deals=d.deals||[];
+  const realClients=clients.filter(p=>!p.is_test&&!p.archived_at);
 
-  document.getElementById("sClients").textContent=clients.length;
-  document.getElementById("sFollow").textContent=clients.filter(p=>p.status==="Ricerca attiva"&&(p.days_aplsai||0)>=30).length;
+  document.getElementById("sClients").textContent=realClients.length;
+  document.getElementById("sFollow").textContent=realClients.filter(p=>p.status==="Ricerca attiva"&&(p.days_aplsai||0)>=30).length;
   document.getElementById("sProperties").textContent=props.length;
   document.getElementById("sDeals").textContent=deals.length;
 
   document.getElementById("todayGrid").innerHTML=
     `<article class="area-card"><h3>Clienti da seguire</h3>${
-      clients.filter(p=>p.status==="Ricerca attiva"&&(p.days_aplsai||0)>=30)
+      realClients.filter(p=>p.status==="Ricerca attiva"&&(p.days_aplsai||0)>=30)
       .map(p=>`<div class="list-row"><b>${p.name}</b><br>${p.zone.main}</div>`).join("")||"<p>Nessuno.</p>"
     }</article>
     <article class="area-card"><h3>Nuove opportunità</h3>${
       props.slice(0,5).map(p=>`<div class="list-row"><b>${p.ref}</b><br>${p.zone}</div>`).join("")||"<p>Nessuna.</p>"
     }</article>`;
 
-  document.getElementById("staffClientList").innerHTML=
-    clients.map(p=>`<div class="list-row"><b>${p.name}</b><br>${p.zone.main}<br><button class="secondary" onclick="openServerClient('${p.id}')">Apri</button></div>`).join("")||"<p>Nessun cliente.</p>";
+  renderClientRegistry();
 
   document.getElementById("propertyList").innerHTML=
     props.map(p=>`<div class="list-row"><b>${p.ref}</b><br>${p.zone} · €${Number(p.price).toLocaleString("it-IT")} · ${p.sqm} m²</div>`).join("")||"<p>Nessun immobile.</p>";
 
-  document.getElementById("matchClient").innerHTML=clients.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
+  document.getElementById("matchClient").innerHTML=realClients.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
   document.getElementById("matchProperty").innerHTML=props.map(p=>`<option value="${p.id}">${p.ref} · ${p.zone}</option>`).join("");
   document.getElementById("dealList").innerHTML=deals.map(d=>`<div class="list-row"><b>${d.ref}</b><br>${clients.find(c=>c.id===d.client_id)?.name||"—"} · ${d.stage}</div>`).join("")||"<p>Nessuna trattativa.</p>";
 
   const dc=document.getElementById("docClient");
-  if(dc) dc.innerHTML=clients.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
+  if(dc) dc.innerHTML=realClients.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
 
   const dl=document.getElementById("staffDocList");
   if(dl) dl.innerHTML=(d.documents||[]).map(x=>`<div class="list-row"><b>${x.title}</b><br>${clients.find(c=>c.id===x.client_id)?.name||"—"}</div>`).join("")||"<p>Nessun documento.</p>";
@@ -957,13 +959,40 @@ async function renderStaffServer(){
   if(rl) rl.innerHTML=(d.referrals||[]).map(x=>`<div class="list-row"><b>${x.friend_email}</b><br>${x.code} · ${x.status}</div>`).join("")||"<p>Nessun referral.</p>";
 }
 
+window.renderClientRegistry=function(){
+  const clients=window.__staffServer?.clients||[];
+  const filter=document.getElementById('clientDataFilter')?.value||'real';
+  const visible=clients.filter(p=>{
+    if(filter==='test')return !!p.is_test&&!p.archived_at;
+    if(filter==='archived')return !!p.archived_at;
+    if(filter==='all')return true;
+    return !p.is_test&&!p.archived_at;
+  });
+  const box=document.getElementById('staffClientList');
+  if(!box)return;
+  box.innerHTML=visible.map(p=>`<div class="list-row"><b>${escapeHtml(p.name)}</b><br>${escapeHtml(p.zone?.main||'—')}<br><small>${p.is_test?'Dato di prova':'Cliente reale'}${p.archived_at?' · Archiviato':''}</small><br><button class="secondary" onclick="openServerClient('${Number(p.id)}')">Apri</button></div>`).join('')||'<p>Nessun cliente in questa sezione.</p>';
+};
+
 window.openServerClient=function(id){
-  const p=(window.__staffServer?.clients||[]).find(x=>x.id===id);
+  const p=(window.__staffServer?.clients||[]).find(x=>Number(x.id)===Number(id));
   if(!p)return;
   document.getElementById("staffClientDetail").innerHTML=
-    `<b>${p.name}</b><br>${p.email}<br>${p.phone}
+    `<b>${escapeHtml(p.name)}</b><br>${escapeHtml(p.email)}<br>${escapeHtml(p.phone)}
+     <div class="sum"><b>Tipo dato</b>${p.is_test?'Prova':'Cliente reale'}${p.archived_at?' · Archiviato':''}</div>
      <div class="sum"><b>Strategia</b>${p.preferred_strategy||"—"}</div>
-     <div class="sum"><b>Stato</b>${p.status}</div>`;
+     <div class="sum"><b>Stato</b>${p.status}</div>
+     ${window.__staffRole==='admin'?`<button class="secondary full" onclick="setClientClassification(${Number(p.id)},${!p.is_test},${!!p.archived_at})">${p.is_test?'Trasforma in cliente reale':'Segna come dato di prova'}</button><button class="secondary full" onclick="setClientClassification(${Number(p.id)},${!!p.is_test},${!p.archived_at})">${p.archived_at?'Ripristina cliente':'Archivia senza eliminare'}</button>`:''}`;
+};
+
+window.setClientClassification=async function(id,isTest,archived){
+  try{
+    const d=await api('/api/admin/clients/'+encodeURIComponent(id)+'/classification',{method:'PATCH',body:JSON.stringify({is_test:isTest,archived})});
+    const rows=window.__staffServer?.clients||[];
+    const index=rows.findIndex(x=>Number(x.id)===Number(id));
+    if(index>=0)rows[index]=d.client;
+    renderClientRegistry();
+    openServerClient(id);
+  }catch(e){alert(e.message||'Impossibile aggiornare il cliente.');}
 };
 
 saveProperty=async function(){
