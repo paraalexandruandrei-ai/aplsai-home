@@ -14,7 +14,7 @@ db = SQLAlchemy()
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 LOGIN_WINDOW_SECONDS = 15 * 60
 LOGIN_MAX_ATTEMPTS = 5
-ADMIN_PASSWORD_RECOVERY_MIGRATION = "20260905_02_admin_password_recovery"
+ADMIN_PASSWORD_RECOVERY_MIGRATION = "20260905_09_admin_password_recovery"
 ADMIN_LOGIN_ALIAS = "admin@aplsai.it"
 _login_attempts = {}
 
