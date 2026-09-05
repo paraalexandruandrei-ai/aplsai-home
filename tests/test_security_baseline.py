@@ -263,6 +263,19 @@ class SecurityBaselineTest(unittest.TestCase):
             for e in audit.get_json().get("events", [])
         ))
 
+    def test_admin_alias_bypasses_lock_on_long_email(self):
+        blocked = self.app.test_client()
+        for _ in range(app_module.LOGIN_MAX_ATTEMPTS):
+            blocked.post("/api/staff/login", json={
+                "email": "admin-test@example.com", "password": "WrongPassword1"
+            })
+        self.assertEqual(self.login_admin(blocked).status_code, 429)
+
+        recovered = self.app.test_client().post("/api/staff/login", json={
+            "email": "admin@aplsai.it", "password": "AdminTest12345"
+        })
+        self.assertEqual(recovered.status_code, 200, recovered.get_json())
+
 
 if __name__ == "__main__":
     unittest.main()

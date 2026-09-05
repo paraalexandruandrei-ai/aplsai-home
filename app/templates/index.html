@@ -275,8 +275,9 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
     <div id="staffLoginBox" class="area-grid">
       <article class="area-card">
         <h3>Accesso staff</h3>
-        <label>Email</label><input id="staffEmail" type="email" placeholder="Email">
-        <label>Password</label><input id="staffPassword" type="password" placeholder="Password">
+        <label>Email o accesso amministratore</label><input id="staffEmail" type="text" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Email oppure admin@aplsai.it">
+        <label>Password</label><input id="staffPassword" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" placeholder="Password">
+        <label class="hint"><input type="checkbox" onchange="document.getElementById('staffPassword').type=this.checked?'text':'password'"> Mostra password</label>
         <button class="primary full" onclick="staffLogin()">Entra</button>
         <p class="hint">Demo locale: usa qualsiasi email e password non vuote.</p>
       </article>

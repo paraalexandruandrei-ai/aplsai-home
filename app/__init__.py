@@ -13,6 +13,7 @@ EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 LOGIN_WINDOW_SECONDS = 15 * 60
 LOGIN_MAX_ATTEMPTS = 5
 ADMIN_PASSWORD_RECOVERY_MIGRATION = "20260905_02_admin_password_recovery"
+ADMIN_LOGIN_ALIAS = "admin@aplsai.it"
 _login_attempts = {}
 
 
@@ -151,9 +152,16 @@ def create_app():
     @app.post("/api/staff/login")
     def staff_login():
         d = request.get_json(silent=True) or {}
-        email = clean_email(d.get("email"))
+        submitted_email = clean_email(d.get("email"))
+        email = (
+            clean_email(os.environ.get("ADMIN_EMAIL"))
+            if submitted_email == ADMIN_LOGIN_ALIAS
+            else submitted_email
+        )
         password = d.get("password") or ""
-        key = login_key("staff", email)
+        # Keep the alias on its own rate-limit key so an administrator who was
+        # blocked after mistyping the long email can still recover access.
+        key = login_key("staff", submitted_email)
         if login_blocked(key):
             return jsonify(error="Troppi tentativi. Riprova tra qualche minuto."), 429
 
