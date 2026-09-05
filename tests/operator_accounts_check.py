@@ -26,6 +26,7 @@ from app.scenarios import init_scenarios
 from app.feasibility import init_feasibility
 from app.cashflow import init_cashflow
 from app.portfolio import init_portfolio
+from app.capacity import init_capacity
 
 
 class OperatorAccountsCheck(unittest.TestCase):
@@ -43,6 +44,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         init_feasibility(cls.app, app_module)
         init_cashflow(cls.app, app_module)
         init_portfolio(cls.app, app_module)
+        init_capacity(cls.app, app_module)
 
         with cls.app.app_context():
             for role, email in [
@@ -314,6 +316,10 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertIn("Stress portafoglio", workbook.sheetnames)
         self.assertIn("Portafoglio mensile", workbook.sheetnames)
         self.assertIn("Storico portafoglio", workbook.sheetnames)
+        self.assertIn("Squadre operative", workbook.sheetnames)
+        self.assertIn("Assegnazioni operative", workbook.sheetnames)
+        self.assertIn("Capacità mensile", workbook.sheetnames)
+        self.assertIn("Storico squadre", workbook.sheetnames)
         headers = [cell.value for cell in next(workbook["Immobili"].iter_rows(max_row=1))]
         self.assertIn("Trasformabilità", headers)
         self.assertIn("Costo lavori minimo", headers)
@@ -558,6 +564,42 @@ class OperatorAccountsCheck(unittest.TestCase):
         )["breaches"])
         self.assertEqual([row["version"] for row in portfolio["revisions"][:2]], [2, 1])
 
+        team_created = admin.post("/api/staff/capacity/teams", json={
+            "name": "Squadra collaudo", "company": "NP Costruzioni",
+            "specialty": "Ristrutturazioni interne", "responsible": "Responsabile prova",
+            "monthly_capacity_days": 100, "source": "Disponibilità di collaudo",
+            "reliability": "Documentato", "notes": "Dati esclusivamente di test.",
+        })
+        self.assertEqual(team_created.status_code, 201, team_created.get_json())
+        team_id = team_created.get_json()["team"]["id"]
+
+        allocation_created = admin.post("/api/staff/capacity/allocations", json={
+            "team_id": team_id, "plan_id": cash_plan_id, "month": "2026-11",
+            "phase": "Lavori interni", "required_worker_days": 120,
+            "status": "Confermato", "external_dependency": "Nessuna",
+            "source": "Cronoprogramma di prova", "reliability": "Documentato",
+        })
+        self.assertEqual(allocation_created.status_code, 201, allocation_created.get_json())
+        capacity = allocation_created.get_json()["capacity"]
+        self.assertEqual(capacity["results"]["decision"], "SOVRACCARICO / RIPIANIFICARE")
+        self.assertEqual(capacity["results"]["overloaded_month_count"], 1)
+        month = capacity["results"]["months"][0]
+        self.assertEqual(month["used_days"], 120)
+        self.assertEqual(month["remaining_days"], -20)
+
+        team_updated = admin.patch(f"/api/staff/capacity/teams/{team_id}", json={
+            "monthly_capacity_days": 150, "change_note": "Aumentata capacità documentata",
+        })
+        self.assertEqual(team_updated.status_code, 200, team_updated.get_json())
+        capacity = team_updated.get_json()["capacity"]
+        self.assertEqual(capacity["results"]["decision"], "CAPACITÀ DISPONIBILE")
+        self.assertEqual(capacity["results"]["months"][0]["remaining_days"], 30)
+        team_detail = admin.get(f"/api/staff/capacity/teams/{team_id}")
+        self.assertEqual([row["version"] for row in team_detail.get_json()["team"]["revisions"][:2]], [2, 1])
+
+        operator_capacity = operator.get("/api/staff/capacity")
+        self.assertEqual(operator_capacity.status_code, 200, operator_capacity.get_json())
+
         detail = admin.get(f"/api/staff/properties/{property_id}")
         self.assertEqual(detail.status_code, 200, detail.get_json())
         revisions = detail.get_json()["revisions"]
@@ -579,6 +621,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertEqual(admin.get(f"/api/staff/scenarios/{scenario_id}").status_code, 404)
         self.assertEqual(admin.get(f"/api/staff/feasibility/{analysis_id}").status_code, 404)
         self.assertEqual(admin.get(f"/api/staff/cashflow/{cash_plan_id}").status_code, 404)
+        self.assertEqual(admin.get("/api/staff/capacity").get_json()["capacity"]["results"]["active_allocation_count"], 0)
 
     def test_admin_can_separate_test_clients_and_archive_without_deleting(self):
         profile = {

@@ -298,6 +298,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         <button class="staff-tab" onclick="staffTab('feasibility',this)">Fattibilità</button>
         <button class="staff-tab" onclick="staffTab('cashflow',this)">Cassa</button>
         <button class="staff-tab" onclick="staffTab('portfolio',this)">Portafoglio</button>
+        <button class="staff-tab" onclick="staffTab('capacity',this)">Capacità</button>
         <button class="staff-tab" onclick="staffTab('matching',this)">Matching</button>
         <button class="staff-tab" onclick="staffTab('deals',this)">Trattative</button><button class="staff-tab" onclick="staffTab('referrals',this)">Referral</button><button class="staff-tab" onclick="staffTab('documents',this)">Documenti</button><button class="staff-tab" id="staffCollaboratorsTab" onclick="staffTab('collaborators',this)">Collaboratori</button><button class="staff-tab" id="staffExportTab" onclick="staffTab('export',this)">Esportazione</button><button class="staff-tab" onclick="staffTab('security',this)">Sicurezza</button>
       </div>
@@ -432,6 +433,37 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
           <p id="portfolioFormMessage" class="hint" aria-live="polite"></p>
         </article>
         <article class="area-card"><h3>Esposizione complessiva</h3><div id="portfolioSummary">Caricamento…</div><div id="portfolioDetails"></div></article>
+      </div></div>
+      <div id="staff-capacity" class="staff-panel" style="display:none"><div class="area-grid">
+        <article class="area-card"><h3 id="capacityTeamTitle">Nuova squadra</h3>
+          <input id="capacityTeamId" type="hidden">
+          <label>Nome squadra</label><input id="capacityTeamName" placeholder="Es. Squadra interni 1">
+          <label>Società o partner</label><input id="capacityCompany" placeholder="NP Costruzioni, partner esterno…">
+          <label>Specializzazione</label><input id="capacitySpecialty" placeholder="Muratura, impianti, finiture…">
+          <label>Responsabile</label><input id="capacityResponsible" placeholder="Nome responsabile o preposto">
+          <label>Capacità mensile</label><input id="capacityDays" type="number" min="0.1" step="0.1" placeholder="Giornate-uomo">
+          <label>Fonte</label><input id="capacitySource" placeholder="Organico, accordo partner, disponibilità confermata">
+          <label>Affidabilità</label><select id="capacityReliability"><option>Da verificare</option><option>Dichiarato</option><option>Documentato</option><option>Verificato</option></select>
+          <label>Note</label><textarea id="capacityTeamNotes" rows="3"></textarea>
+          <label>Motivo modifica</label><input id="capacityTeamChange" placeholder="Es. aggiornata disponibilità squadra">
+          <button class="primary full" id="capacityTeamSaveBtn" onclick="saveCapacityTeam()">Salva squadra</button>
+          <button class="secondary full" id="capacityTeamCancelBtn" style="display:none" onclick="resetCapacityTeam()">Annulla modifica</button>
+        </article>
+        <article class="area-card"><h3>Assegna lavoro mensile</h3>
+          <label>Squadra</label><select id="capacityAllocationTeam"></select>
+          <label>Operazione</label><select id="capacityAllocationPlan"></select>
+          <label>Mese</label><input id="capacityAllocationMonth" type="month">
+          <label>Fase di lavoro</label><input id="capacityAllocationPhase" placeholder="Demolizioni, impianti, finiture…">
+          <label>Impegno richiesto</label><input id="capacityAllocationDays" type="number" min="0.1" step="0.1" placeholder="Giornate-uomo">
+          <label>Stato</label><select id="capacityAllocationStatus"><option>Pianificato</option><option>Confermato</option><option>In corso</option><option>Completato</option><option>Sospeso</option></select>
+          <label>Dipendenza esterna</label><input id="capacityDependency" placeholder="Permesso, materiale, tecnico, cliente…">
+          <label>Fonte</label><input id="capacityAllocationSource" placeholder="Cronoprogramma, accordo, preventivo">
+          <label>Affidabilità</label><select id="capacityAllocationReliability"><option>Da verificare</option><option>Dichiarato</option><option>Documentato</option><option>Verificato</option></select>
+          <label>Note</label><textarea id="capacityAllocationNotes" rows="3"></textarea>
+          <button class="primary full" onclick="saveCapacityAllocation()">Aggiungi al calendario</button>
+          <p class="hint">Non vengono inseriti automaticamente operai o giornate: usa solo disponibilità realmente confermate.</p>
+        </article>
+        <article class="area-card"><h3>Carico operativo</h3><div id="capacitySummary">Caricamento…</div><div id="capacityDetails"></div></article>
       </div></div>
       <div id="staff-matching" class="staff-panel" style="display:none"><p class="hint">Il calcolo distingue la casa com’è oggi dal suo potenziale dopo gli interventi. Costi accessori, finanziamento e verifiche mancanti restano sempre evidenziati.</p><div class="area-grid"><article class="area-card"><h3>Cliente → immobili</h3><select id="matchClient"></select><button class="primary" onclick="runClientMatch()">Calcola compatibilità</button><div id="clientMatchResults"></div></article><article class="area-card"><h3>Immobile → clienti</h3><select id="matchProperty"></select><button class="primary" onclick="runPropertyMatch()">Calcola compatibilità</button><div id="propertyMatchResults"></div></article></div></div>
       <div id="staff-deals" class="staff-panel" style="display:none"><div id="dealList"></div></div>
@@ -1076,6 +1108,7 @@ async function renderStaffServer(){
   try{await loadFeasibility();}catch(_){const box=document.getElementById('feasibilityList');if(box)box.innerHTML='<p>Analisi non disponibili.</p>';}
   try{await loadCashflow();}catch(_){const box=document.getElementById('cashflowList');if(box)box.innerHTML='<p>Piani di cassa non disponibili.</p>';}
   try{await loadPortfolio();}catch(_){const box=document.getElementById('portfolioSummary');if(box)box.innerHTML='<p>Portafoglio non disponibile.</p>';}
+  try{await loadCapacity();}catch(_){const box=document.getElementById('capacitySummary');if(box)box.innerHTML='<p>Capacità operativa non disponibile.</p>';}
   document.getElementById("dealList").innerHTML=deals.map(d=>`<div class="list-row"><b>${d.ref}</b><br>${clients.find(c=>c.id===d.client_id)?.name||"—"} · ${d.stage}</div>`).join("")||"<p>Nessuna trattativa.</p>";
 
   const dc=document.getElementById("docClient");
@@ -1336,6 +1369,28 @@ window.savePortfolioSettings=async function(){
   const payload={available_liquidity:optional('portfolioLiquidity'),minimum_liquidity_reserve:optional('portfolioReserve'),max_ap_exposure:optional('portfolioMaxExposure'),max_concurrent_operations:optional('portfolioMaxConcurrent'),notes:raw('portfolioNotes').trim(),change_note:raw('portfolioChangeNote').trim()};
   try{if(msg)msg.textContent='Ricalcolo…';const d=await api('/api/staff/portfolio/settings',{method:'PATCH',body:JSON.stringify(payload)});window.__portfolio=d.portfolio;document.getElementById('portfolioChangeNote').value='';renderPortfolio();if(msg)msg.textContent='Limiti salvati e portafoglio ricalcolato.';}catch(e){if(msg)msg.textContent=e.message||'Impossibile salvare i limiti.';}
 };
+
+async function loadCapacity(){const d=await api('/api/staff/capacity');window.__capacity=d.capacity||{};renderCapacity();}
+
+function renderCapacity(){
+  const c=window.__capacity||{},r=c.results||{},teams=(c.teams||[]).filter(x=>!x.archived_at),plans=(window.__cashflow||[]).filter(x=>!x.archived_at);
+  const teamSelect=document.getElementById('capacityAllocationTeam'),planSelect=document.getElementById('capacityAllocationPlan');
+  if(teamSelect)teamSelect.innerHTML=teams.map(x=>`<option value="${Number(x.id)}">${escapeHtml(x.name)} · ${escapeHtml(x.company)}</option>`).join('');
+  if(planSelect)planSelect.innerHTML=plans.map(x=>`<option value="${Number(x.id)}">${escapeHtml(x.property_ref||'')} · ${escapeHtml(x.name)}</option>`).join('');
+  const summary=document.getElementById('capacitySummary'),details=document.getElementById('capacityDetails');if(!summary||!details)return;
+  const missing=(r.unassigned_plans||[]).map(x=>`<li>${escapeHtml(x.name)}</li>`).join('');
+  summary.innerHTML=`<div class="sum"><b>Decisione operativa</b><strong>${escapeHtml(r.decision||'DA CONFIGURARE')}</strong><br><small>${Number(r.active_team_count||0)} squadre · ${Number(r.active_allocation_count||0)} assegnazioni · ${Number(r.overloaded_month_count||0)} sovraccarichi</small></div>${missing?`<div class="sum"><b>Operazioni ancora senza squadra</b><ul>${missing}</ul></div>`:''}`;
+  const teamRows=teams.map(t=>`<div class="sum"><b>${escapeHtml(t.name)} · ${escapeHtml(t.company)}</b><small>${escapeHtml(t.specialty||'Specializzazione da indicare')} · Responsabile ${escapeHtml(t.responsible||'da indicare')}<br>Capacità ${t.monthly_capacity_days===null?'Da configurare':Number(t.monthly_capacity_days).toLocaleString('it-IT')+' giornate-uomo'} · ${escapeHtml(t.reliability)} · v${Number(t.version)}</small><button class="secondary" onclick="editCapacityTeam(${Number(t.id)})">Modifica</button><button class="secondary" onclick="archiveCapacityTeam(${Number(t.id)})">Archivia</button></div>`).join('')||'<p>Nessuna squadra registrata.</p>';
+  const monthRows=(r.months||[]).map(m=>`<div class="sum"><b>${escapeHtml(m.month)} · ${escapeHtml(m.team_name)} · ${escapeHtml(m.status)}</b><small>Impegno ${Number(m.used_days).toLocaleString('it-IT')} / ${m.capacity_days===null?'da configurare':Number(m.capacity_days).toLocaleString('it-IT')} giornate-uomo · Residuo ${m.remaining_days===null?'da verificare':Number(m.remaining_days).toLocaleString('it-IT')}<br>${(m.allocations||[]).map(a=>`${escapeHtml(a.property_ref||'')} ${escapeHtml(a.phase)} (${Number(a.required_worker_days).toLocaleString('it-IT')}) <button class="secondary" onclick="deleteCapacityAllocation(${Number(a.id)})">Rimuovi</button>`).join('<br>')}</small></div>`).join('')||'<p>Nessuna assegnazione mensile.</p>';
+  details.innerHTML=`<details open><summary>Squadre disponibili</summary>${teamRows}</details><details open><summary>Calendario mensile</summary>${monthRows}</details><p class="hint">Le giornate-uomo sono capacità operativa, non durata contrattuale del cantiere.</p>`;
+}
+
+window.saveCapacityTeam=async function(){const value=id=>document.getElementById(id)?.value??'',id=value('capacityTeamId'),payload={name:value('capacityTeamName').trim(),company:value('capacityCompany').trim(),specialty:value('capacitySpecialty').trim(),responsible:value('capacityResponsible').trim(),monthly_capacity_days:value('capacityDays')===''?null:Number(value('capacityDays')),source:value('capacitySource').trim()||'Da verificare',reliability:value('capacityReliability'),notes:value('capacityTeamNotes').trim(),change_note:value('capacityTeamChange').trim()};try{const d=await api(id?`/api/staff/capacity/teams/${id}`:'/api/staff/capacity/teams',{method:id?'PATCH':'POST',body:JSON.stringify(payload)});window.__capacity=d.capacity;resetCapacityTeam();renderCapacity();}catch(e){alert(e.message||'Impossibile salvare la squadra.');}};
+window.editCapacityTeam=function(id){const t=(window.__capacity?.teams||[]).find(x=>Number(x.id)===Number(id));if(!t)return;const values={capacityTeamId:t.id,capacityTeamName:t.name,capacityCompany:t.company,capacitySpecialty:t.specialty,capacityResponsible:t.responsible,capacityDays:t.monthly_capacity_days,capacitySource:t.source,capacityReliability:t.reliability,capacityTeamNotes:t.notes};Object.entries(values).forEach(([key,value])=>{const el=document.getElementById(key);if(el)el.value=value??'';});document.getElementById('capacityTeamTitle').textContent='Modifica squadra';document.getElementById('capacityTeamSaveBtn').textContent='Salva nuova versione';document.getElementById('capacityTeamCancelBtn').style.display='block';};
+window.resetCapacityTeam=function(){['capacityTeamId','capacityTeamName','capacityCompany','capacitySpecialty','capacityResponsible','capacityDays','capacitySource','capacityTeamNotes','capacityTeamChange'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('capacityReliability').value='Da verificare';document.getElementById('capacityTeamTitle').textContent='Nuova squadra';document.getElementById('capacityTeamSaveBtn').textContent='Salva squadra';document.getElementById('capacityTeamCancelBtn').style.display='none';};
+window.archiveCapacityTeam=async function(id){if(!confirm('Archiviare la squadra e toglierla dalla capacità disponibile?'))return;try{const d=await api(`/api/staff/capacity/teams/${id}/archive`,{method:'PATCH',body:JSON.stringify({archived:true})});window.__capacity=d.capacity;renderCapacity();}catch(e){alert(e.message||'Impossibile archiviare la squadra.');}};
+window.saveCapacityAllocation=async function(){const value=id=>document.getElementById(id)?.value??'',payload={team_id:Number(value('capacityAllocationTeam')),plan_id:Number(value('capacityAllocationPlan')),month:value('capacityAllocationMonth'),phase:value('capacityAllocationPhase').trim(),required_worker_days:Number(value('capacityAllocationDays')),status:value('capacityAllocationStatus'),external_dependency:value('capacityDependency').trim(),source:value('capacityAllocationSource').trim()||'Da verificare',reliability:value('capacityAllocationReliability'),notes:value('capacityAllocationNotes').trim()};try{const d=await api('/api/staff/capacity/allocations',{method:'POST',body:JSON.stringify(payload)});window.__capacity=d.capacity;['capacityAllocationMonth','capacityAllocationPhase','capacityAllocationDays','capacityDependency','capacityAllocationSource','capacityAllocationNotes'].forEach(id=>{document.getElementById(id).value='';});renderCapacity();}catch(e){alert(e.message||'Impossibile aggiungere l’assegnazione.');}};
+window.deleteCapacityAllocation=async function(id){if(!confirm('Rimuovere questa assegnazione dal calendario?'))return;try{const d=await api(`/api/staff/capacity/allocations/${id}`,{method:'DELETE',body:'{}'});window.__capacity=d.capacity;renderCapacity();}catch(e){alert(e.message||'Impossibile rimuovere l’assegnazione.');}};
 
 function matchMoney(value){return value===null||value===undefined?'Da verificare':'€'+Number(value).toLocaleString('it-IT');}
 function matchStatus(value){return ({compatibile:'Compatibile',non_compatibile:'Non compatibile',parziale:'Parziale',da_verificare:'Da verificare',entro_ideale:'Entro budget ideale',entro_massimo:'Entro budget massimo',con_flessibilita:'Con flessibilità',fuori_budget:'Fuori budget'})[value]||value||'Da verificare';}

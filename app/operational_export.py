@@ -317,6 +317,46 @@ def init_operational_export(app, app_module):
             row.get("change_note"), row.get("created_at"), json.dumps(row.get("snapshot") or {}, ensure_ascii=False),
         ) for row in portfolio.get("revisions", [])])
 
+        capacity_ext = app.extensions.get("aplsai_capacity") or {}
+        capacity_serializer = capacity_ext.get("capacity_dict")
+        capacity = capacity_serializer() if capacity_serializer else {"teams": [], "allocations": [], "results": {"months": []}}
+        _sheet(wb, "Squadre operative", [
+            "ID", "Nome", "Società o partner", "Specializzazione", "Responsabile",
+            "Capacità mensile giornate-uomo", "Fonte", "Affidabilità", "Versione",
+            "Archiviato il", "Aggiornato il", "Note",
+        ], [(
+            row.get("id"), row.get("name"), row.get("company"), row.get("specialty"),
+            row.get("responsible"), row.get("monthly_capacity_days"), row.get("source"),
+            row.get("reliability"), row.get("version"), row.get("archived_at"),
+            row.get("updated_at"), row.get("notes"),
+        ) for row in capacity.get("teams", [])])
+        _sheet(wb, "Assegnazioni operative", [
+            "ID", "ID squadra", "Squadra", "ID piano", "Operazione", "Immobile", "Mese",
+            "Fase", "Giornate-uomo richieste", "Stato", "Dipendenza esterna",
+            "Fonte", "Affidabilità", "Aggiornato il", "Note",
+        ], [(
+            row.get("id"), row.get("team_id"), row.get("team_name"), row.get("plan_id"),
+            row.get("plan_name"), row.get("property_ref"), row.get("month"), row.get("phase"),
+            row.get("required_worker_days"), row.get("status"), row.get("external_dependency"),
+            row.get("source"), row.get("reliability"), row.get("updated_at"), row.get("notes"),
+        ) for row in capacity.get("allocations", [])])
+        _sheet(wb, "Capacità mensile", [
+            "Mese", "ID squadra", "Squadra", "Società", "Capacità giornate-uomo",
+            "Giornate-uomo impegnate", "Giornate-uomo residue", "Utilizzo %", "Stato",
+        ], [(
+            row.get("month"), row.get("team_id"), row.get("team_name"), row.get("company"),
+            row.get("capacity_days"), row.get("used_days"), row.get("remaining_days"),
+            row.get("utilization_percent"), row.get("status"),
+        ) for row in (capacity.get("results") or {}).get("months", [])])
+        TeamRevision = capacity_ext.get("TeamRevision")
+        team_revisions = TeamRevision.query.order_by(TeamRevision.team_id.asc(), TeamRevision.version.asc()).all() if TeamRevision else []
+        _sheet(wb, "Storico squadre", [
+            "ID revisione", "ID squadra", "Versione", "ID autore", "Motivo", "Data", "Fotografia JSON",
+        ], [(
+            row.id, row.team_id, row.version, row.changed_by_user_id,
+            row.change_note, _iso(row.created_at), row.snapshot_json,
+        ) for row in team_revisions])
+
         operations_ext = app.extensions.get("aplsai_operations") or {}
         Operation = operations_ext.get("ClientOperation")
         operations = Operation.query.order_by(Operation.client_id.asc()).all() if Operation else []

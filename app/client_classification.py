@@ -102,6 +102,8 @@ def init_client_classification(app, app_module):
         CashPlan = cashflow_ext.get("CashFlowPlan")
         CashMovement = cashflow_ext.get("CashFlowMovement")
         CashRevision = cashflow_ext.get("CashFlowRevision")
+        capacity_ext = app.extensions.get("aplsai_capacity") or {}
+        CapacityAllocation = capacity_ext.get("CapacityAllocation")
 
         if Assignment is not None:
             Assignment.query.filter_by(client_id=client_id).delete(synchronize_session=False)
@@ -114,6 +116,8 @@ def init_client_classification(app, app_module):
                     analysis_ids = [row.id for row in Analysis.query.filter(Analysis.scenario_id.in_(scenario_ids)).all()]
                     if analysis_ids and CashPlan is not None:
                         plan_ids = [row.id for row in CashPlan.query.filter(CashPlan.analysis_id.in_(analysis_ids)).all()]
+                        if plan_ids and CapacityAllocation is not None:
+                            CapacityAllocation.query.filter(CapacityAllocation.plan_id.in_(plan_ids)).delete(synchronize_session=False)
                         if plan_ids and CashMovement is not None:
                             CashMovement.query.filter(CashMovement.plan_id.in_(plan_ids)).delete(synchronize_session=False)
                         if plan_ids and CashRevision is not None:
