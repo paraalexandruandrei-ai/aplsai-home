@@ -1,7 +1,9 @@
 import os
 import tempfile
 import unittest
+from io import BytesIO
 
+from openpyxl import load_workbook
 from sqlalchemy import text
 from werkzeug.security import generate_password_hash
 
@@ -19,6 +21,7 @@ from app.rbac_runtime import install_runtime_rbac
 from app.staff_accounts import init_staff_accounts
 from app.operational_export import init_operational_export
 from app.client_classification import init_client_classification
+from app.property_profiles import init_property_profiles
 
 
 class OperatorAccountsCheck(unittest.TestCase):
@@ -31,6 +34,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         init_staff_accounts(cls.app, app_module)
         init_operational_export(cls.app, app_module)
         init_client_classification(cls.app, app_module)
+        init_property_profiles(cls.app, app_module)
 
         with cls.app.app_context():
             for role, email in [
@@ -284,9 +288,78 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data[:2], b"PK")
         self.assertIn("application/vnd.openxmlformats", response.content_type)
+        workbook = load_workbook(BytesIO(response.data), read_only=True)
+        self.assertIn("Immobili", workbook.sheetnames)
+        self.assertIn("Storico immobili", workbook.sheetnames)
+        headers = [cell.value for cell in next(workbook["Immobili"].iter_rows(max_row=1))]
+        self.assertIn("Trasformabilità", headers)
+        self.assertIn("Costo lavori minimo", headers)
 
         operator = self.role_client("existing-operator@example.com")
         self.assertEqual(operator.get("/api/admin/operational-export.xlsx").status_code, 403)
+
+    def test_advanced_property_profile_history_validation_and_archive(self):
+        admin = self.login_admin()
+        created = admin.post("/api/staff/properties", json={
+            "ref": "IMM-PROFILO-TEST",
+            "property_type": "Appartamento",
+            "address": "Da verificare",
+            "zone": "Roma",
+            "price": 240000,
+            "sqm": 82,
+            "beds": 2,
+            "baths": 1,
+            "state": "Da ristrutturare",
+            "availability": "Da verificare",
+            "elevator": None,
+            "energy_class": "Da verificare",
+            "systems_status": "Da verificare",
+            "transformation_status": "Verifica in corso",
+            "planned_works": "Riduzione rischi e ridistribuzione interna da validare.",
+            "renovation_cost_min": 45000,
+            "renovation_cost_max": 70000,
+            "renovation_months_min": 4,
+            "renovation_months_max": 7,
+            "data_reliability": "Dichiarato",
+            "technical_verification": "Da verificare",
+        })
+        self.assertEqual(created.status_code, 201, created.get_json())
+        prop = created.get_json()["property"]
+        property_id = prop["id"]
+        self.assertEqual(prop["transformation_status"], "Verifica in corso")
+        self.assertEqual(prop["renovation_cost_min"], 45000)
+
+        invalid = admin.patch(f"/api/staff/properties/{property_id}", json={
+            "renovation_cost_min": 80000,
+            "renovation_cost_max": 60000,
+        })
+        self.assertEqual(invalid.status_code, 400, invalid.get_json())
+
+        updated = admin.patch(f"/api/staff/properties/{property_id}", json={
+            "transformation_status": "Trasformabile",
+            "technical_verification": "Verificato",
+            "data_reliability": "Verificato",
+            "renovation_cost_min": 50000,
+            "renovation_cost_max": 68000,
+            "change_note": "Validazione tecnica completata",
+        })
+        self.assertEqual(updated.status_code, 200, updated.get_json())
+        self.assertEqual(updated.get_json()["property"]["transformation_status"], "Trasformabile")
+
+        detail = admin.get(f"/api/staff/properties/{property_id}")
+        self.assertEqual(detail.status_code, 200, detail.get_json())
+        revisions = detail.get_json()["revisions"]
+        self.assertEqual([row["version"] for row in revisions[:2]], [2, 1])
+        self.assertEqual(revisions[0]["change_note"], "Validazione tecnica completata")
+
+        archived = admin.patch(f"/api/staff/properties/{property_id}/archive", json={"archived": True})
+        self.assertEqual(archived.status_code, 200, archived.get_json())
+        self.assertIsNotNone(archived.get_json()["property"]["archived_at"])
+        self.assertEqual(admin.get(f"/api/staff/match/property/{property_id}").status_code, 409)
+
+        restored = admin.patch(f"/api/staff/properties/{property_id}/archive", json={"archived": False})
+        self.assertEqual(restored.status_code, 200, restored.get_json())
+        self.assertIsNone(restored.get_json()["property"]["archived_at"])
 
     def test_admin_can_separate_test_clients_and_archive_without_deleting(self):
         profile = {

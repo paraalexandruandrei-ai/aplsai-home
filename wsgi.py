@@ -8,6 +8,7 @@ from app.partner_access import init_partner_access
 from app.document_security import init_document_security
 from app.operational_export import init_operational_export
 from app.client_classification import init_client_classification
+from app.property_profiles import init_property_profiles
 
 app = app_module.create_app()
 init_operations(app, app_module)
@@ -17,6 +18,7 @@ init_partner_access(app, app_module)
 init_document_security(app, app_module)
 init_operational_export(app, app_module)
 init_client_classification(app, app_module)
+init_property_profiles(app, app_module)
 
 
 def _sanitize_value(value, key=None):

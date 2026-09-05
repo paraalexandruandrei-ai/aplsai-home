@@ -270,9 +270,20 @@ def create_app():
         if not ref or not zone or price <= 0 or sqm <= 0 or not (0 <= beds <= 30) or not (0 <= baths <= 30):
             return jsonify(error="Dati immobile incompleti o non validi."), 400
         p = Property(ref=ref, zone=zone, price=price, sqm=sqm, beds=beds, baths=baths, state=state, source=source)
+        property_profiles = app.extensions.get("aplsai_property_profiles") or {}
+        apply_payload = property_profiles.get("apply_payload")
+        if apply_payload:
+            try:
+                apply_payload(p, d)
+            except (TypeError, ValueError) as exc:
+                return jsonify(error=str(exc) or "Dati immobile non validi."), 400
         db.session.add(p)
+        db.session.flush()
+        record_revision = property_profiles.get("record_revision")
+        if record_revision:
+            record_revision(p, u, "Creazione scheda immobile")
         db.session.commit()
-        return jsonify(ok=True, id=p.id), 201
+        return jsonify(ok=True, id=p.id, property=p.to_dict()), 201
 
     @app.get("/api/staff/match/client/<int:client_id>")
     def match_client(client_id):
@@ -283,7 +294,7 @@ def create_app():
         if not c:
             return jsonify(error="Cliente non trovato."), 404
         rows = []
-        for p in Property.query.all():
+        for p in Property.query.filter(Property.archived_at.is_(None)).all():
             sc, reason = match_score(c, p.to_dict())
             rows.append({"property": p.to_dict(), "score": sc, "reason": reason})
         rows.sort(key=lambda x: x["score"], reverse=True)
@@ -297,6 +308,8 @@ def create_app():
         p = db.session.get(Property, property_id)
         if not p:
             return jsonify(error="Immobile non trovato."), 404
+        if p.archived_at:
+            return jsonify(error="Immobile archiviato."), 409
         rows = []
         for cp in ClientProfile.query.filter(
             ClientProfile.is_test.is_(False), ClientProfile.archived_at.is_(None)
@@ -643,10 +656,53 @@ class Property(db.Model):
     baths = db.Column(db.Integer, default=0)
     state = db.Column(db.String(100), default="")
     source = db.Column(db.String(100), default="Staff")
+    property_type = db.Column(db.String(80), nullable=False, default="Da definire", server_default="Da definire")
+    address = db.Column(db.String(255), nullable=False, default="", server_default="")
+    floor = db.Column(db.String(40), nullable=False, default="", server_default="")
+    elevator = db.Column(db.Boolean)
+    exposure = db.Column(db.String(100), nullable=False, default="", server_default="")
+    outdoor_spaces = db.Column(db.String(255), nullable=False, default="", server_default="")
+    parking = db.Column(db.String(160), nullable=False, default="", server_default="")
+    energy_class = db.Column(db.String(20), nullable=False, default="Da verificare", server_default="Da verificare")
+    systems_status = db.Column(db.String(120), nullable=False, default="Da verificare", server_default="Da verificare")
+    availability = db.Column(db.String(80), nullable=False, default="Da verificare", server_default="Da verificare")
+    known_constraints = db.Column(db.Text, nullable=False, default="", server_default="")
+    transformation_status = db.Column(db.String(80), nullable=False, default="Da verificare", server_default="Da verificare")
+    planned_works = db.Column(db.Text, nullable=False, default="", server_default="")
+    renovation_cost_min = db.Column(db.Float)
+    renovation_cost_max = db.Column(db.Float)
+    renovation_months_min = db.Column(db.Integer)
+    renovation_months_max = db.Column(db.Integer)
+    data_reliability = db.Column(db.String(40), nullable=False, default="Da verificare", server_default="Da verificare")
+    technical_verification = db.Column(db.String(80), nullable=False, default="Da verificare", server_default="Da verificare")
+    notes = db.Column(db.Text, nullable=False, default="", server_default="")
+    archived_at = db.Column(db.DateTime(timezone=True))
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False, onupdate=utcnow)
 
     def to_dict(self):
-        return {"id": self.id, "ref": self.ref, "zone": self.zone, "price": self.price, "sqm": self.sqm, "beds": self.beds, "baths": self.baths, "state": self.state, "source": self.source, "created_at": self.created_at.isoformat()}
+        return {
+            "id": self.id, "ref": self.ref, "zone": self.zone, "price": self.price,
+            "sqm": self.sqm, "beds": self.beds, "baths": self.baths,
+            "state": self.state, "source": self.source,
+            "property_type": self.property_type, "address": self.address,
+            "floor": self.floor, "elevator": self.elevator, "exposure": self.exposure,
+            "outdoor_spaces": self.outdoor_spaces, "parking": self.parking,
+            "energy_class": self.energy_class, "systems_status": self.systems_status,
+            "availability": self.availability, "known_constraints": self.known_constraints,
+            "transformation_status": self.transformation_status,
+            "planned_works": self.planned_works,
+            "renovation_cost_min": self.renovation_cost_min,
+            "renovation_cost_max": self.renovation_cost_max,
+            "renovation_months_min": self.renovation_months_min,
+            "renovation_months_max": self.renovation_months_max,
+            "data_reliability": self.data_reliability,
+            "technical_verification": self.technical_verification,
+            "notes": self.notes,
+            "archived_at": self.archived_at.isoformat() if self.archived_at else None,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
 
 
 class Deal(db.Model):

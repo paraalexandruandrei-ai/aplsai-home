@@ -7,6 +7,7 @@ from sqlalchemy import bindparam, create_engine, inspect, text
 MIGRATION_ID = "20260902_01_user_active"
 CLIENT_CLASSIFICATION_MIGRATION_ID = "20260905_03_client_classification"
 INITIAL_TEST_PURGE_MIGRATION_ID = "20260905_04_purge_confirmed_test_clients"
+PROPERTY_PROFILE_MIGRATION_ID = "20260905_05_property_profile_v1"
 
 
 def _database_url():
@@ -177,5 +178,69 @@ def purge_confirmed_initial_test_clients():
                 },
             )
         return len(client_ids)
+    finally:
+        engine.dispose()
+
+
+def ensure_property_profile_columns():
+    """Add the advanced, nullable property profile fields without losing data."""
+    engine = create_engine(_database_url(), pool_pre_ping=True)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS aplsai_schema_migration ("
+                "id VARCHAR(100) PRIMARY KEY, applied_at TIMESTAMP NOT NULL)"
+            ))
+            already = conn.execute(
+                text("SELECT 1 FROM aplsai_schema_migration WHERE id=:id"),
+                {"id": PROPERTY_PROFILE_MIGRATION_ID},
+            ).first()
+            if already:
+                return False
+
+            tables = set(inspect(conn).get_table_names())
+            if "property" in tables:
+                columns = {c["name"] for c in inspect(conn).get_columns("property")}
+                definitions = {
+                    "property_type": "VARCHAR(80) NOT NULL DEFAULT 'Da definire'",
+                    "address": "VARCHAR(255) NOT NULL DEFAULT ''",
+                    "floor": "VARCHAR(40) NOT NULL DEFAULT ''",
+                    "elevator": "BOOLEAN",
+                    "exposure": "VARCHAR(100) NOT NULL DEFAULT ''",
+                    "outdoor_spaces": "VARCHAR(255) NOT NULL DEFAULT ''",
+                    "parking": "VARCHAR(160) NOT NULL DEFAULT ''",
+                    "energy_class": "VARCHAR(20) NOT NULL DEFAULT 'Da verificare'",
+                    "systems_status": "VARCHAR(120) NOT NULL DEFAULT 'Da verificare'",
+                    "availability": "VARCHAR(80) NOT NULL DEFAULT 'Da verificare'",
+                    "known_constraints": "TEXT NOT NULL DEFAULT ''",
+                    "transformation_status": "VARCHAR(80) NOT NULL DEFAULT 'Da verificare'",
+                    "planned_works": "TEXT NOT NULL DEFAULT ''",
+                    "renovation_cost_min": "FLOAT",
+                    "renovation_cost_max": "FLOAT",
+                    "renovation_months_min": "INTEGER",
+                    "renovation_months_max": "INTEGER",
+                    "data_reliability": "VARCHAR(40) NOT NULL DEFAULT 'Da verificare'",
+                    "technical_verification": "VARCHAR(80) NOT NULL DEFAULT 'Da verificare'",
+                    "notes": "TEXT NOT NULL DEFAULT ''",
+                    "archived_at": "TIMESTAMP",
+                    "updated_at": "TIMESTAMP",
+                }
+                for name, definition in definitions.items():
+                    if name not in columns:
+                        conn.execute(text(
+                            f'ALTER TABLE "property" ADD COLUMN "{name}" {definition}'
+                        ))
+
+            conn.execute(
+                text(
+                    "INSERT INTO aplsai_schema_migration (id, applied_at) "
+                    "VALUES (:id, :applied_at)"
+                ),
+                {
+                    "id": PROPERTY_PROFILE_MIGRATION_ID,
+                    "applied_at": datetime.now(timezone.utc),
+                },
+            )
+        return True
     finally:
         engine.dispose()

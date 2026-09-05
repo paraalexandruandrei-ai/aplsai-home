@@ -300,17 +300,54 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
       <div id="staff-today" class="staff-panel"><div id="todayGrid" class="area-grid"></div></div>
       <div id="staff-clients" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Clienti</h3><label>Visualizza</label><select id="clientDataFilter" onchange="renderClientRegistry()"><option value="real">Clienti reali</option><option value="test">Dati di prova</option><option value="archived">Archiviati</option><option value="all">Tutti</option></select><div id="staffClientList"></div></article><article class="area-card"><h3>Scheda cliente</h3><div id="staffClientDetail">Seleziona un cliente.</div></article></div></div>
       <div id="staff-properties" class="staff-panel" style="display:none"><div class="area-grid">
-        <article class="area-card"><h3>Nuovo immobile</h3>
+        <article class="area-card"><h3 id="propertyFormTitle">Nuovo immobile</h3>
+          <input id="propId" type="hidden">
+          <label>Riferimento</label>
           <input id="propRef" placeholder="Riferimento">
+          <label>Tipologia</label><select id="propType"><option>Da definire</option><option>Appartamento</option><option>Villa</option><option>Casa indipendente</option><option>Terreno</option><option>Fabbricato</option><option>Locale da trasformare</option><option>Altro</option></select>
+          <label>Indirizzo</label><input id="propAddress" placeholder="Indirizzo o ubicazione">
+          <label>Zona</label>
           <input id="propZone" placeholder="Zona">
+          <label>Prezzo di acquisto</label>
           <input id="propPrice" type="number" placeholder="Prezzo">
+          <label>Metratura</label>
           <input id="propSqm" type="number" placeholder="Metratura">
+          <label>Camere</label>
           <input id="propBeds" type="number" placeholder="Camere">
+          <label>Bagni</label>
           <input id="propBaths" type="number" placeholder="Bagni">
+          <label>Stato manutentivo</label>
           <select id="propState"><option>Chiavi in mano</option><option>Da ristrutturare</option><option>Nuova costruzione</option></select>
-          <button class="primary full" onclick="saveProperty()">Salva immobile</button>
+          <label>Disponibilità</label><select id="propAvailability"><option>Da verificare</option><option>Disponibile</option><option>Occupato</option><option>In trattativa</option><option>Non disponibile</option></select>
+          <details><summary>Dati tecnici e caratteristiche</summary>
+            <label>Piano</label><input id="propFloor" placeholder="Es. 2, terra, rialzato">
+            <label>Ascensore</label><select id="propElevator"><option value="">Da verificare</option><option value="true">Sì</option><option value="false">No</option></select>
+            <label>Esposizione</label><input id="propExposure" placeholder="Es. sud-est">
+            <label>Spazi esterni</label><input id="propOutdoor" placeholder="Balcone, terrazzo, giardino">
+            <label>Parcheggio</label><input id="propParking" placeholder="Box, posto auto, nessuno">
+            <label>Classe energetica</label><input id="propEnergy" placeholder="Da verificare">
+            <label>Stato impianti</label><input id="propSystems" placeholder="Da verificare">
+          </details>
+          <details><summary>Trasformazione, costi e tempi</summary>
+            <label>Trasformabilità</label><select id="propTransformation"><option>Da verificare</option><option>Verifica in corso</option><option>Trasformabile</option><option>Parzialmente trasformabile</option><option>Non trasformabile</option></select>
+            <label>Interventi ipotizzati</label><textarea id="propWorks" rows="3" placeholder="Lavori e trasformazioni ipotizzate"></textarea>
+            <label>Costo lavori minimo</label><input id="propCostMin" type="number" min="0" placeholder="Euro">
+            <label>Costo lavori massimo</label><input id="propCostMax" type="number" min="0" placeholder="Euro">
+            <label>Durata minima</label><input id="propMonthsMin" type="number" min="0" placeholder="Mesi">
+            <label>Durata massima</label><input id="propMonthsMax" type="number" min="0" placeholder="Mesi">
+            <label>Vincoli conosciuti</label><textarea id="propConstraints" rows="3" placeholder="Urbanistici, tecnici o legali"></textarea>
+          </details>
+          <details><summary>Affidabilità e verifiche</summary>
+            <label>Affidabilità dei dati</label><select id="propReliability"><option>Da verificare</option><option>Dichiarato</option><option>Documentato</option><option>Verificato</option></select>
+            <label>Verifica tecnica</label><select id="propTechnical"><option>Da verificare</option><option>Verifica in corso</option><option>Verificato</option><option>Criticità rilevate</option></select>
+            <label>Fonte</label><input id="propSource" value="Staff" placeholder="Fonte dell'immobile">
+            <label>Note</label><textarea id="propNotes" rows="3" placeholder="Note interne"></textarea>
+            <label>Motivo modifica</label><input id="propChangeNote" placeholder="Es. aggiornato preventivo lavori">
+          </details>
+          <button class="primary full" id="propertySaveBtn" onclick="saveProperty()">Salva immobile</button>
+          <button class="secondary full" id="propertyCancelBtn" style="display:none" onclick="resetPropertyForm()">Annulla modifica</button>
         </article>
-        <article class="area-card"><h3>Immobili</h3><div id="propertyList"></div></article>
+        <article class="area-card"><h3>Archivio immobili</h3><label>Visualizza</label><select id="propertyFilter" onchange="renderPropertyRegistry()"><option value="active">Immobili attivi</option><option value="archived">Archiviati</option><option value="all">Tutti</option></select><div id="propertyList"></div><div id="propertyDetail" class="list-row" style="display:none"></div></article>
       </div></div>
       <div id="staff-matching" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Cliente → immobili</h3><select id="matchClient"></select><button class="primary" onclick="runClientMatch()">Calcola</button><div id="clientMatchResults"></div></article><article class="area-card"><h3>Immobile → clienti</h3><select id="matchProperty"></select><button class="primary" onclick="runPropertyMatch()">Calcola</button><div id="propertyMatchResults"></div></article></div></div>
       <div id="staff-deals" class="staff-panel" style="display:none"><div id="dealList"></div></div>
@@ -925,10 +962,11 @@ async function renderStaffServer(){
   window.__staffServer=d;
   const clients=d.clients||[], props=d.properties||[], deals=d.deals||[];
   const realClients=clients.filter(p=>!p.is_test&&!p.archived_at);
+  const activeProps=props.filter(p=>!p.archived_at);
 
   document.getElementById("sClients").textContent=realClients.length;
   document.getElementById("sFollow").textContent=realClients.filter(p=>p.status==="Ricerca attiva"&&(p.days_aplsai||0)>=30).length;
-  document.getElementById("sProperties").textContent=props.length;
+  document.getElementById("sProperties").textContent=activeProps.length;
   document.getElementById("sDeals").textContent=deals.length;
 
   document.getElementById("todayGrid").innerHTML=
@@ -937,16 +975,15 @@ async function renderStaffServer(){
       .map(p=>`<div class="list-row"><b>${p.name}</b><br>${p.zone.main}</div>`).join("")||"<p>Nessuno.</p>"
     }</article>
     <article class="area-card"><h3>Nuove opportunità</h3>${
-      props.slice(0,5).map(p=>`<div class="list-row"><b>${p.ref}</b><br>${p.zone}</div>`).join("")||"<p>Nessuna.</p>"
+      activeProps.slice(0,5).map(p=>`<div class="list-row"><b>${p.ref}</b><br>${p.zone}</div>`).join("")||"<p>Nessuna.</p>"
     }</article>`;
 
   renderClientRegistry();
 
-  document.getElementById("propertyList").innerHTML=
-    props.map(p=>`<div class="list-row"><b>${p.ref}</b><br>${p.zone} · €${Number(p.price).toLocaleString("it-IT")} · ${p.sqm} m²</div>`).join("")||"<p>Nessun immobile.</p>";
+  renderPropertyRegistry();
 
   document.getElementById("matchClient").innerHTML=realClients.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
-  document.getElementById("matchProperty").innerHTML=props.map(p=>`<option value="${p.id}">${p.ref} · ${p.zone}</option>`).join("");
+  document.getElementById("matchProperty").innerHTML=activeProps.map(p=>`<option value="${p.id}">${p.ref} · ${p.zone}</option>`).join("");
   document.getElementById("dealList").innerHTML=deals.map(d=>`<div class="list-row"><b>${d.ref}</b><br>${clients.find(c=>c.id===d.client_id)?.name||"—"} · ${d.stage}</div>`).join("")||"<p>Nessuna trattativa.</p>";
 
   const dc=document.getElementById("docClient");
@@ -1005,21 +1042,85 @@ window.deleteTestClient=async function(id){
   }catch(e){alert(e.message||'Impossibile eliminare il dato di prova.');}
 };
 
-saveProperty=async function(){
-  const payload={
-    ref:document.getElementById("propRef").value.trim(),
-    zone:document.getElementById("propZone").value.trim(),
-    price:Number(document.getElementById("propPrice").value),
-    sqm:Number(document.getElementById("propSqm").value),
-    beds:Number(document.getElementById("propBeds").value)||0,
-    baths:Number(document.getElementById("propBaths").value)||0,
-    state:document.getElementById("propState").value,
-    source:"Staff"
-  };
+window.renderPropertyRegistry=function(){
+  const props=window.__staffServer?.properties||[];
+  const filter=document.getElementById('propertyFilter')?.value||'active';
+  const visible=props.filter(p=>filter==='all'||(filter==='archived'?!!p.archived_at:!p.archived_at));
+  const box=document.getElementById('propertyList');
+  if(!box)return;
+  box.innerHTML=visible.map(p=>`<div class="list-row"><b>${escapeHtml(p.ref)}</b><br>${escapeHtml(p.property_type||'Da definire')} · ${escapeHtml(p.zone)}<br>€${Number(p.price).toLocaleString('it-IT')} · ${Number(p.sqm).toLocaleString('it-IT')} m²<br><small>${escapeHtml(p.transformation_status||'Da verificare')}${p.archived_at?' · Archiviato':''}</small><br><button class="secondary" onclick="openProperty(${Number(p.id)})">Apri scheda</button></div>`).join('')||'<p>Nessun immobile in questa sezione.</p>';
+};
+
+window.openProperty=async function(id){
   try{
-    await api("/api/staff/properties",{method:"POST",body:JSON.stringify(payload)});
+    const d=await api('/api/staff/properties/'+encodeURIComponent(id));
+    const p=d.property, totalMin=Number(p.price)+(Number(p.renovation_cost_min)||0), totalMax=Number(p.price)+(Number(p.renovation_cost_max)||0);
+    const elevator=p.elevator===null?'Da verificare':(p.elevator?'Sì':'No');
+    const history=(d.revisions||[]).slice(0,5).map(r=>`<li>v${Number(r.version)} · ${escapeHtml(r.change_note)} · ${new Date(r.created_at).toLocaleDateString('it-IT')}</li>`).join('')||'<li>Nessuna versione registrata.</li>';
+    const box=document.getElementById('propertyDetail');
+    box.style.display='block';
+    box.innerHTML=`<h3>${escapeHtml(p.ref)}</h3><b>${escapeHtml(p.property_type||'Da definire')}</b><br>${escapeHtml(p.address||'Indirizzo da definire')} · ${escapeHtml(p.zone)}
+      <div class="sum"><b>Acquisto</b>€${Number(p.price).toLocaleString('it-IT')}</div>
+      <div class="sum"><b>Lavori stimati</b>€${Number(p.renovation_cost_min||0).toLocaleString('it-IT')} – €${Number(p.renovation_cost_max||0).toLocaleString('it-IT')}</div>
+      <div class="sum"><b>Totale indicativo</b>€${totalMin.toLocaleString('it-IT')} – €${totalMax.toLocaleString('it-IT')}</div>
+      <div class="sum"><b>Dati tecnici</b>${escapeHtml(p.floor||'Piano da verificare')} · Ascensore ${elevator} · Classe ${escapeHtml(p.energy_class||'Da verificare')}</div>
+      <div class="sum"><b>Trasformabilità</b>${escapeHtml(p.transformation_status||'Da verificare')} · ${escapeHtml(p.technical_verification||'Da verificare')}</div>
+      <div class="sum"><b>Vincoli</b>${escapeHtml(p.known_constraints||'Nessun dato inserito')}</div>
+      <div class="sum"><b>Storico</b><ul>${history}</ul></div>
+      <button class="primary full" onclick="editProperty(${Number(p.id)})">Modifica scheda</button>
+      <button class="secondary full" onclick="archiveProperty(${Number(p.id)},${!p.archived_at})">${p.archived_at?'Ripristina immobile':'Archivia immobile'}</button>`;
+  }catch(e){alert(e.message||'Impossibile aprire la scheda immobile.');}
+};
+
+window.editProperty=function(id){
+  const p=(window.__staffServer?.properties||[]).find(x=>Number(x.id)===Number(id));
+  if(!p)return;
+  const values={propId:p.id,propRef:p.ref,propType:p.property_type,propAddress:p.address,propZone:p.zone,propPrice:p.price,propSqm:p.sqm,propBeds:p.beds,propBaths:p.baths,propState:p.state,propAvailability:p.availability,propFloor:p.floor,propExposure:p.exposure,propOutdoor:p.outdoor_spaces,propParking:p.parking,propEnergy:p.energy_class,propSystems:p.systems_status,propTransformation:p.transformation_status,propWorks:p.planned_works,propCostMin:p.renovation_cost_min,propCostMax:p.renovation_cost_max,propMonthsMin:p.renovation_months_min,propMonthsMax:p.renovation_months_max,propConstraints:p.known_constraints,propReliability:p.data_reliability,propTechnical:p.technical_verification,propSource:p.source,propNotes:p.notes};
+  Object.entries(values).forEach(([key,value])=>{const el=document.getElementById(key);if(el)el.value=value??'';});
+  document.getElementById('propElevator').value=p.elevator===null?'':String(!!p.elevator);
+  document.getElementById('propertyFormTitle').textContent='Modifica immobile';
+  document.getElementById('propertySaveBtn').textContent='Salva modifiche';
+  document.getElementById('propertyCancelBtn').style.display='block';
+  document.getElementById('staff-properties').scrollIntoView({behavior:'smooth',block:'start'});
+};
+
+window.resetPropertyForm=function(){
+  ['propId','propRef','propAddress','propZone','propPrice','propSqm','propBeds','propBaths','propFloor','propExposure','propOutdoor','propParking','propEnergy','propSystems','propWorks','propCostMin','propCostMax','propMonthsMin','propMonthsMax','propConstraints','propNotes','propChangeNote'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const defaults={propType:'Da definire',propState:'Chiavi in mano',propAvailability:'Da verificare',propElevator:'',propTransformation:'Da verificare',propReliability:'Da verificare',propTechnical:'Da verificare',propSource:'Staff'};
+  Object.entries(defaults).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.value=value;});
+  document.getElementById('propertyFormTitle').textContent='Nuovo immobile';
+  document.getElementById('propertySaveBtn').textContent='Salva immobile';
+  document.getElementById('propertyCancelBtn').style.display='none';
+};
+
+saveProperty=async function(){
+  const value=id=>document.getElementById(id)?.value??'';
+  const optionalNumber=id=>value(id)===''?null:Number(value(id));
+  const elevator=value('propElevator');
+  const payload={
+    ref:value('propRef').trim(),property_type:value('propType'),address:value('propAddress').trim(),zone:value('propZone').trim(),
+    price:Number(value('propPrice')),sqm:Number(value('propSqm')),beds:Number(value('propBeds'))||0,baths:Number(value('propBaths'))||0,
+    state:value('propState'),availability:value('propAvailability'),floor:value('propFloor').trim(),elevator:elevator===''?null:elevator==='true',
+    exposure:value('propExposure').trim(),outdoor_spaces:value('propOutdoor').trim(),parking:value('propParking').trim(),energy_class:value('propEnergy').trim()||'Da verificare',
+    systems_status:value('propSystems').trim()||'Da verificare',transformation_status:value('propTransformation'),planned_works:value('propWorks').trim(),
+    renovation_cost_min:optionalNumber('propCostMin'),renovation_cost_max:optionalNumber('propCostMax'),renovation_months_min:optionalNumber('propMonthsMin'),renovation_months_max:optionalNumber('propMonthsMax'),
+    known_constraints:value('propConstraints').trim(),data_reliability:value('propReliability'),technical_verification:value('propTechnical'),source:value('propSource').trim()||'Staff',notes:value('propNotes').trim(),change_note:value('propChangeNote').trim()
+  };
+  const id=value('propId');
+  try{
+    await api(id?'/api/staff/properties/'+encodeURIComponent(id):'/api/staff/properties',{method:id?'PATCH':'POST',body:JSON.stringify(payload)});
+    resetPropertyForm();
     await renderStaffServer();
   }catch(e){ alert(e.message); }
+};
+
+window.archiveProperty=async function(id,archived){
+  if(archived&&!confirm('Archiviare questo immobile senza cancellarne lo storico?'))return;
+  try{
+    await api('/api/staff/properties/'+encodeURIComponent(id)+'/archive',{method:'PATCH',body:JSON.stringify({archived})});
+    document.getElementById('propertyDetail').style.display='none';
+    await renderStaffServer();
+  }catch(e){alert(e.message||'Impossibile aggiornare l’immobile.');}
 };
 
 runClientMatch=async function(){

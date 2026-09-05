@@ -113,10 +113,36 @@ def init_operational_export(app, app_module):
             *row[1:],
         ) for row in profile_rows])
 
-        _sheet(wb, "Immobili", ["ID immobile", "Riferimento", "Zona", "Prezzo", "Mq", "Camere", "Bagni", "Stato", "Fonte", "Creato il"], [
-            (p.id, p.ref, p.zone, p.price, p.sqm, p.beds, p.baths, p.state, p.source, _iso(p.created_at))
+        _sheet(wb, "Immobili", [
+            "ID immobile", "Riferimento", "Tipologia", "Indirizzo", "Zona", "Prezzo", "Mq",
+            "Camere", "Bagni", "Piano", "Ascensore", "Esposizione", "Spazi esterni",
+            "Parcheggio", "Stato manutentivo", "Classe energetica", "Stato impianti",
+            "Disponibilità", "Vincoli conosciuti", "Trasformabilità", "Interventi ipotizzati",
+            "Costo lavori minimo", "Costo lavori massimo", "Mesi minimi", "Mesi massimi",
+            "Affidabilità dati", "Verifica tecnica", "Fonte", "Note", "Archiviato il",
+            "Creato il", "Aggiornato il",
+        ], [
+            (
+                p.id, p.ref, p.property_type, p.address, p.zone, p.price, p.sqm, p.beds,
+                p.baths, p.floor, p.elevator, p.exposure, p.outdoor_spaces, p.parking,
+                p.state, p.energy_class, p.systems_status, p.availability,
+                p.known_constraints, p.transformation_status, p.planned_works,
+                p.renovation_cost_min, p.renovation_cost_max, p.renovation_months_min,
+                p.renovation_months_max, p.data_reliability, p.technical_verification,
+                p.source, p.notes, _iso(p.archived_at), _iso(p.created_at), _iso(p.updated_at),
+            )
             for p in app_module.Property.query.order_by(app_module.Property.id.asc()).all()
         ])
+
+        property_ext = app.extensions.get("aplsai_property_profiles") or {}
+        PropertyRevision = property_ext.get("PropertyRevision")
+        revisions = PropertyRevision.query.order_by(PropertyRevision.property_id.asc(), PropertyRevision.version.asc()).all() if PropertyRevision else []
+        _sheet(wb, "Storico immobili", [
+            "ID revisione", "ID immobile", "Versione", "ID autore", "Motivo", "Data", "Fotografia JSON",
+        ], [(
+            row.id, row.property_id, row.version, row.changed_by_user_id,
+            row.change_note, _iso(row.created_at), row.snapshot_json,
+        ) for row in revisions])
 
         operations_ext = app.extensions.get("aplsai_operations") or {}
         Operation = operations_ext.get("ClientOperation")
