@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 from flask import Flask, render_template, request, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
@@ -11,6 +12,7 @@ db = SQLAlchemy()
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 LOGIN_WINDOW_SECONDS = 15 * 60
 LOGIN_MAX_ATTEMPTS = 5
+ADMIN_PASSWORD_RECOVERY_MIGRATION = "20260905_02_admin_password_recovery"
 _login_attempts = {}
 
 
@@ -492,15 +494,40 @@ def seed_admin():
     if existing:
         if existing.role != "staff":
             raise RuntimeError("ADMIN_EMAIL già usata da un utente non staff")
-        # ADMIN_PASSWORD is only a first-start bootstrap secret. Once the
-        # account exists, password changes made in the Admin area must survive
-        # restarts and deployments.
+        _apply_one_time_admin_password_recovery(existing, password)
         return
 
-    db.session.add(User(
+    existing = User(
         role="staff", name="APLSAI Admin", email=email, phone="",
         password_hash=generate_password_hash(password, method="scrypt")
+    )
+    db.session.add(existing)
+    db.session.flush()
+    _apply_one_time_admin_password_recovery(existing, password)
+
+
+def _apply_one_time_admin_password_recovery(admin, password):
+    """Restore the configured admin password once, then preserve later changes."""
+    db.session.execute(text(
+        "CREATE TABLE IF NOT EXISTS aplsai_schema_migration ("
+        "id VARCHAR(100) PRIMARY KEY, applied_at TIMESTAMP NOT NULL)"
     ))
+    applied = db.session.execute(
+        text("SELECT 1 FROM aplsai_schema_migration WHERE id=:id"),
+        {"id": ADMIN_PASSWORD_RECOVERY_MIGRATION},
+    ).first()
+    if not applied:
+        admin.password_hash = generate_password_hash(password, method="scrypt")
+        db.session.execute(
+            text(
+                "INSERT INTO aplsai_schema_migration (id, applied_at) "
+                "VALUES (:id, :applied_at)"
+            ),
+            {
+                "id": ADMIN_PASSWORD_RECOVERY_MIGRATION,
+                "applied_at": utcnow(),
+            },
+        )
     db.session.commit()
 
 

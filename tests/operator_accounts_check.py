@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 
+from sqlalchemy import text
 from werkzeug.security import generate_password_hash
 
 _tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
@@ -224,6 +225,38 @@ class OperatorAccountsCheck(unittest.TestCase):
         with self.app.app_context():
             u = app_module.User.query.filter_by(email="admin-accounts@example.com").first()
             u.password_hash = generate_password_hash("AdminAccounts12345", method="scrypt")
+            app_module.db.session.commit()
+
+    def test_admin_password_recovery_runs_once(self):
+        with self.app.app_context():
+            admin = app_module.User.query.filter_by(email="admin-accounts@example.com").first()
+            admin.password_hash = generate_password_hash("StaleAdmin12345", method="scrypt")
+            app_module.db.session.execute(
+                text("DELETE FROM aplsai_schema_migration WHERE id=:id"),
+                {"id": app_module.ADMIN_PASSWORD_RECOVERY_MIGRATION},
+            )
+            app_module.db.session.commit()
+            app_module.seed_admin()
+
+        recovered = self.login_admin()
+        changed = recovered.post("/api/staff/password", json={
+            "current_password": "AdminAccounts12345",
+            "new_password": "RecoveredAdmin12345",
+        })
+        self.assertEqual(changed.status_code, 200, changed.get_json())
+
+        with self.app.app_context():
+            app_module.seed_admin()
+
+        survived = self.app.test_client().post("/api/staff/login", json={
+            "email": "admin-accounts@example.com",
+            "password": "RecoveredAdmin12345",
+        })
+        self.assertEqual(survived.status_code, 200, survived.get_json())
+
+        with self.app.app_context():
+            admin = app_module.User.query.filter_by(email="admin-accounts@example.com").first()
+            admin.password_hash = generate_password_hash("AdminAccounts12345", method="scrypt")
             app_module.db.session.commit()
 
     def test_operator_can_change_own_password_but_not_manage_operators(self):
