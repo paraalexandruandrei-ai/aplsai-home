@@ -294,6 +294,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         <button class="staff-tab active" onclick="staffTab('today',this)">Oggi</button>
         <button class="staff-tab" onclick="staffTab('clients',this)">Clienti</button>
         <button class="staff-tab" onclick="staffTab('properties',this)">Immobili</button>
+        <button class="staff-tab" onclick="staffTab('scenarios',this)">Scenari</button>
         <button class="staff-tab" onclick="staffTab('matching',this)">Matching</button>
         <button class="staff-tab" onclick="staffTab('deals',this)">Trattative</button><button class="staff-tab" onclick="staffTab('referrals',this)">Referral</button><button class="staff-tab" onclick="staffTab('documents',this)">Documenti</button><button class="staff-tab" id="staffCollaboratorsTab" onclick="staffTab('collaborators',this)">Collaboratori</button><button class="staff-tab" id="staffExportTab" onclick="staffTab('export',this)">Esportazione</button><button class="staff-tab" onclick="staffTab('security',this)">Sicurezza</button>
       </div>
@@ -349,6 +350,31 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         </article>
         <article class="area-card"><h3>Archivio immobili</h3><label>Visualizza</label><select id="propertyFilter" onchange="renderPropertyRegistry()"><option value="active">Immobili attivi</option><option value="archived">Archiviati</option><option value="all">Tutti</option></select><div id="propertyList"></div><div id="propertyDetail" class="list-row" style="display:none"></div></article>
       </div></div>
+      <div id="staff-scenarios" class="staff-panel" style="display:none"><div class="area-grid">
+        <article class="area-card"><h3 id="scenarioFormTitle">Nuovo scenario</h3>
+          <input id="scenarioId" type="hidden">
+          <label>Immobile</label><select id="scenarioProperty"></select>
+          <label>Cliente collegato</label><select id="scenarioClient"><option value="">Nessun cliente specifico</option></select>
+          <label>Nome scenario</label><input id="scenarioName" placeholder="Es. Soluzione famiglia – 2 camere">
+          <label>Livello</label><select id="scenarioType"><option>Essenziale</option><option selected>Equilibrato</option><option>Evolutivo</option></select>
+          <label>Stato</label><select id="scenarioStatus"><option>Bozza</option><option selected>Da verificare</option><option>Validato dal tecnico</option><option>Approvato</option></select>
+          <label>Descrizione progettuale</label><textarea id="scenarioDescription" rows="3" placeholder="Distribuzione e risultato previsto"></textarea>
+          <details><summary>Risultato, tempi e verifiche</summary>
+            <label>Mq risultanti</label><input id="scenarioSqm" type="number" min="0" step="0.1">
+            <label>Camere risultanti</label><input id="scenarioBeds" type="number" min="0">
+            <label>Bagni risultanti</label><input id="scenarioBaths" type="number" min="0">
+            <label>Durata minima</label><input id="scenarioMonthsMin" type="number" min="0" placeholder="Mesi">
+            <label>Durata massima</label><input id="scenarioMonthsMax" type="number" min="0" placeholder="Mesi">
+            <label>Ipotesi utilizzate</label><textarea id="scenarioAssumptions" rows="3" placeholder="Assunzioni da confermare"></textarea>
+            <label>Vincoli e rischi</label><textarea id="scenarioConstraints" rows="3" placeholder="Vincoli tecnici, urbanistici o economici"></textarea>
+            <label>Validazione tecnica</label><select id="scenarioTechnical"><option>Da verificare</option><option>Verifica in corso</option><option>Verificato</option><option>Criticità rilevate</option></select>
+            <label>Motivo modifica</label><input id="scenarioChangeNote" placeholder="Es. aggiornate quantità">
+          </details>
+          <button class="primary full" id="scenarioSaveBtn" onclick="saveScenario()">Crea scenario</button>
+          <button class="secondary full" id="scenarioCancelBtn" style="display:none" onclick="resetScenarioForm()">Annulla modifica</button>
+        </article>
+        <article class="area-card"><h3>Scenari progettuali</h3><p class="hint">I totali restano parziali finché tutte le categorie obbligatorie non sono compilate.</p><div id="scenarioList"></div><div id="scenarioDetail" class="list-row" style="display:none"></div></article>
+      </div></div>
       <div id="staff-matching" class="staff-panel" style="display:none"><p class="hint">Il calcolo distingue la casa com’è oggi dal suo potenziale dopo gli interventi. Costi accessori, finanziamento e verifiche mancanti restano sempre evidenziati.</p><div class="area-grid"><article class="area-card"><h3>Cliente → immobili</h3><select id="matchClient"></select><button class="primary" onclick="runClientMatch()">Calcola compatibilità</button><div id="clientMatchResults"></div></article><article class="area-card"><h3>Immobile → clienti</h3><select id="matchProperty"></select><button class="primary" onclick="runPropertyMatch()">Calcola compatibilità</button><div id="propertyMatchResults"></div></article></div></div>
       <div id="staff-deals" class="staff-panel" style="display:none"><div id="dealList"></div></div>
       <div id="staff-referrals" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Referral</h3><div id="staffReferralList"></div></article><article class="area-card"><h3>Regola V1</h3><p>Credito, sconto o Premium temporaneo. Nessun premio economico collegato a compravendite nella prima versione.</p></article></div></div>
@@ -365,7 +391,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
       </div></div>
       <div id="staff-export" class="staff-panel" style="display:none"><div class="area-grid">
         <article class="area-card"><h3>Pacchetto operativo Excel</h3>
-          <p>Scarica una fotografia aggiornata dei dati inseriti nel sito. Il file contiene fogli separati per clienti, profili, immobili, pratiche, trattative, referral, documenti, collaboratori e audit.</p>
+          <p>Scarica una fotografia aggiornata dei dati inseriti nel sito. Il file contiene anche scenari progettuali, costi analitici e relativi storici.</p>
           <button class="primary full" onclick="downloadOperationalExport()">Scarica pacchetto operativo</button>
           <p class="hint">Il file contiene dati personali: conservalo in una cartella protetta e caricalo qui solo quando vuoi aggiornarlo.</p>
         </article>
@@ -984,6 +1010,9 @@ async function renderStaffServer(){
 
   document.getElementById("matchClient").innerHTML=realClients.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
   document.getElementById("matchProperty").innerHTML=activeProps.map(p=>`<option value="${p.id}">${p.ref} · ${p.zone}</option>`).join("");
+  document.getElementById("scenarioProperty").innerHTML=activeProps.map(p=>`<option value="${p.id}">${escapeHtml(p.ref)} · ${escapeHtml(p.zone)}</option>`).join("");
+  document.getElementById("scenarioClient").innerHTML='<option value="">Nessun cliente specifico</option>'+realClients.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  try{await loadScenarios();}catch(_){const box=document.getElementById('scenarioList');if(box)box.innerHTML='<p>Scenari non disponibili.</p>';}
   document.getElementById("dealList").innerHTML=deals.map(d=>`<div class="list-row"><b>${d.ref}</b><br>${clients.find(c=>c.id===d.client_id)?.name||"—"} · ${d.stage}</div>`).join("")||"<p>Nessuna trattativa.</p>";
 
   const dc=document.getElementById("docClient");
@@ -1122,6 +1151,65 @@ window.archiveProperty=async function(id,archived){
     await renderStaffServer();
   }catch(e){alert(e.message||'Impossibile aggiornare l’immobile.');}
 };
+
+const scenarioCostCategories=['Demolizioni e opere edili','Impianti','Infissi','Finiture','Tecnici e pratiche','Imposte, notaio e agenzia','Costi finanziari','Costi di mantenimento','Vendita','Fondo imprevisti','Altro'];
+
+async function loadScenarios(){
+  const d=await api('/api/staff/scenarios');
+  window.__scenarios=d.scenarios||[];
+  renderScenarioList();
+}
+
+function renderScenarioList(){
+  const box=document.getElementById('scenarioList');if(!box)return;
+  box.innerHTML=(window.__scenarios||[]).map(s=>`<div class="list-row"><b>${escapeHtml(s.name)}</b><br>${escapeHtml(s.property_ref||'Immobile')} · ${escapeHtml(s.scenario_type)}<br><small>${escapeHtml(s.status)} · v${Number(s.version)} · Totale conosciuto ${matchMoney(s.totals?.known_total_min)} – ${matchMoney(s.totals?.known_total_max)}</small><br><button class="secondary" onclick="openScenario(${Number(s.id)})">Apri scenario</button></div>`).join('')||'<p>Nessuno scenario creato.</p>';
+}
+
+window.saveScenario=async function(){
+  const value=id=>document.getElementById(id)?.value??'';
+  const optional=id=>value(id)===''?null:Number(value(id));
+  const payload={
+    property_id:Number(value('scenarioProperty')),client_id:value('scenarioClient')===''?null:Number(value('scenarioClient')),
+    name:value('scenarioName').trim(),scenario_type:value('scenarioType'),status:value('scenarioStatus'),description:value('scenarioDescription').trim(),
+    projected_sqm:optional('scenarioSqm'),projected_beds:optional('scenarioBeds'),projected_baths:optional('scenarioBaths'),
+    months_min:optional('scenarioMonthsMin'),months_max:optional('scenarioMonthsMax'),assumptions:value('scenarioAssumptions').trim(),constraints:value('scenarioConstraints').trim(),
+    technical_validation:value('scenarioTechnical'),change_note:value('scenarioChangeNote').trim()
+  };
+  const id=value('scenarioId');
+  try{const d=await api(id?'/api/staff/scenarios/'+id:'/api/staff/scenarios',{method:id?'PATCH':'POST',body:JSON.stringify(payload)});resetScenarioForm();await loadScenarios();await openScenario(d.scenario.id);}catch(e){alert(e.message||'Impossibile salvare lo scenario.');}
+};
+
+window.resetScenarioForm=function(){
+  ['scenarioId','scenarioName','scenarioDescription','scenarioSqm','scenarioBeds','scenarioBaths','scenarioMonthsMin','scenarioMonthsMax','scenarioAssumptions','scenarioConstraints','scenarioChangeNote'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('scenarioType').value='Equilibrato';document.getElementById('scenarioStatus').value='Da verificare';document.getElementById('scenarioTechnical').value='Da verificare';
+  document.getElementById('scenarioFormTitle').textContent='Nuovo scenario';document.getElementById('scenarioSaveBtn').textContent='Crea scenario';document.getElementById('scenarioCancelBtn').style.display='none';
+};
+
+window.editScenario=function(id){
+  const s=(window.__scenarios||[]).find(x=>Number(x.id)===Number(id));if(!s)return;
+  const values={scenarioId:s.id,scenarioProperty:s.property_id,scenarioClient:s.client_id,scenarioName:s.name,scenarioType:s.scenario_type,scenarioStatus:s.status,scenarioDescription:s.description,scenarioSqm:s.projected_sqm,scenarioBeds:s.projected_beds,scenarioBaths:s.projected_baths,scenarioMonthsMin:s.months_min,scenarioMonthsMax:s.months_max,scenarioAssumptions:s.assumptions,scenarioConstraints:s.constraints,scenarioTechnical:s.technical_validation};
+  Object.entries(values).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.value=value??'';});document.getElementById('scenarioFormTitle').textContent='Modifica scenario';document.getElementById('scenarioSaveBtn').textContent='Salva nuova versione';document.getElementById('scenarioCancelBtn').style.display='block';document.getElementById('staff-scenarios').scrollIntoView({behavior:'smooth',block:'start'});
+};
+
+window.openScenario=async function(id){
+  try{
+    const d=await api('/api/staff/scenarios/'+id),s=d.scenario,t=s.totals||{};
+    const items=(s.items||[]).map(i=>`<div class="sum"><b>${escapeHtml(i.category)} · ${escapeHtml(i.description)}</b><small>${Number(i.quantity).toLocaleString('it-IT')} ${escapeHtml(i.unit)} × ${matchMoney(i.unit_price_min)}–${matchMoney(i.unit_price_max)} = ${matchMoney(i.total_min)}–${matchMoney(i.total_max)}<br>Fonte: ${escapeHtml(i.source)} · ${escapeHtml(i.reliability)}</small><button class="secondary" onclick="deleteScenarioCost(${Number(s.id)},${Number(i.id)})">Rimuovi</button></div>`).join('')||'<p>Nessuna voce di costo inserita.</p>';
+    const missing=(t.missing_categories||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')||'<li>Nessuna categoria obbligatoria mancante.</li>';
+    const history=(s.revisions||[]).slice(0,5).map(r=>`<li>v${Number(r.version)} · ${escapeHtml(r.change_note)}</li>`).join('');
+    const categoryOptions=scenarioCostCategories.map(x=>`<option>${escapeHtml(x)}</option>`).join('');
+    const box=document.getElementById('scenarioDetail');box.style.display='block';box.innerHTML=`<h3>${escapeHtml(s.name)}</h3><small>${escapeHtml(s.property_ref||'')} · ${escapeHtml(s.client_name||'Nessun cliente specifico')} · v${Number(s.version)}</small><div class="sum"><b>Totale economico conosciuto</b>${matchMoney(t.known_total_min)} – ${matchMoney(t.known_total_max)}<br><small>Margine sul budget: ${t.budget?matchMoney(t.budget.known_margin):'Nessun cliente collegato'}</small></div><div class="sum"><b>Categorie mancanti</b><ul>${missing}</ul></div><div class="sum"><b>Risultato progettuale</b>${s.projected_sqm??'Da verificare'} m² · ${s.projected_beds??'Da verificare'} camere · ${s.projected_baths??'Da verificare'} bagni<br><small>${escapeHtml(s.technical_validation)}</small></div><h4>Voci analitiche</h4>${items}<details><summary>Aggiungi una voce di costo</summary><label>Categoria</label><select id="costCategory">${categoryOptions}</select><label>Descrizione</label><input id="costDescription"><label>Quantità</label><input id="costQuantity" type="number" min="0" step="0.01"><label>Unità</label><input id="costUnit" placeholder="m², ml, cad, corpo"><label>Prezzo unitario minimo</label><input id="costPriceMin" type="number" min="0" step="0.01"><label>Prezzo unitario massimo</label><input id="costPriceMax" type="number" min="0" step="0.01"><label>Fonte</label><input id="costSource" placeholder="Preventivo, listino o da verificare"><label>Affidabilità</label><select id="costReliability"><option>Da verificare</option><option>Dichiarato</option><option>Documentato</option><option>Verificato</option></select><button class="primary full" onclick="addScenarioCost(${Number(s.id)})">Aggiungi voce</button></details><details><summary>Storico versioni</summary><ul>${history}</ul></details><button class="primary full" onclick="editScenario(${Number(s.id)})">Modifica scenario</button><button class="secondary full" onclick="archiveScenario(${Number(s.id)})">Archivia scenario</button>`;
+  }catch(e){alert(e.message||'Impossibile aprire lo scenario.');}
+};
+
+window.addScenarioCost=async function(id){
+  const value=key=>document.getElementById(key)?.value??'';
+  const payload={category:value('costCategory'),description:value('costDescription').trim(),quantity:Number(value('costQuantity')),unit:value('costUnit').trim(),unit_price_min:Number(value('costPriceMin')),unit_price_max:Number(value('costPriceMax')),source:value('costSource').trim()||'Da verificare',reliability:value('costReliability')};
+  try{await api(`/api/staff/scenarios/${id}/cost-items`,{method:'POST',body:JSON.stringify(payload)});await loadScenarios();await openScenario(id);}catch(e){alert(e.message||'Voce non valida.');}
+};
+
+window.deleteScenarioCost=async function(scenarioId,itemId){if(!confirm('Rimuovere questa voce di costo? Lo storico conserverà la modifica.'))return;try{await api(`/api/staff/scenarios/${scenarioId}/cost-items/${itemId}`,{method:'DELETE',body:'{}'});await loadScenarios();await openScenario(scenarioId);}catch(e){alert(e.message||'Impossibile rimuovere la voce.');}};
+window.archiveScenario=async function(id){if(!confirm('Archiviare lo scenario senza cancellarne lo storico?'))return;try{await api(`/api/staff/scenarios/${id}/archive`,{method:'PATCH',body:JSON.stringify({archived:true})});document.getElementById('scenarioDetail').style.display='none';await loadScenarios();}catch(e){alert(e.message||'Impossibile archiviare lo scenario.');}};
 
 function matchMoney(value){return value===null||value===undefined?'Da verificare':'€'+Number(value).toLocaleString('it-IT');}
 function matchStatus(value){return ({compatibile:'Compatibile',non_compatibile:'Non compatibile',parziale:'Parziale',da_verificare:'Da verificare',entro_ideale:'Entro budget ideale',entro_massimo:'Entro budget massimo',con_flessibilita:'Con flessibilità',fuori_budget:'Fuori budget'})[value]||value||'Da verificare';}

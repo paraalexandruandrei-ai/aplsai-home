@@ -91,11 +91,23 @@ def init_client_classification(app, app_module):
         Audit = operations_ext.get("AuditEvent")
         partner_ext = app.extensions.get("aplsai_partner_access") or {}
         Assignment = partner_ext.get("PartnerAssignment")
+        scenario_ext = app.extensions.get("aplsai_scenarios") or {}
+        Scenario = scenario_ext.get("PropertyScenario")
+        CostItem = scenario_ext.get("ScenarioCostItem")
+        ScenarioRevision = scenario_ext.get("ScenarioRevision")
 
         if Assignment is not None:
             Assignment.query.filter_by(client_id=client_id).delete(synchronize_session=False)
         if Operation is not None:
             Operation.query.filter_by(client_id=client_id).delete(synchronize_session=False)
+        if Scenario is not None:
+            scenario_ids = [row.id for row in Scenario.query.filter_by(client_id=client_id).all()]
+            if scenario_ids:
+                if CostItem is not None:
+                    CostItem.query.filter(CostItem.scenario_id.in_(scenario_ids)).delete(synchronize_session=False)
+                if ScenarioRevision is not None:
+                    ScenarioRevision.query.filter(ScenarioRevision.scenario_id.in_(scenario_ids)).delete(synchronize_session=False)
+                Scenario.query.filter(Scenario.id.in_(scenario_ids)).delete(synchronize_session=False)
         app_module.Deal.query.filter_by(client_id=client_id).delete(synchronize_session=False)
         app_module.Referral.query.filter_by(owner_id=client_id).delete(synchronize_session=False)
         app_module.Document.query.filter_by(client_id=client_id).delete(synchronize_session=False)

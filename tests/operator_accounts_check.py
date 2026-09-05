@@ -22,6 +22,7 @@ from app.staff_accounts import init_staff_accounts
 from app.operational_export import init_operational_export
 from app.client_classification import init_client_classification
 from app.property_profiles import init_property_profiles
+from app.scenarios import init_scenarios
 
 
 class OperatorAccountsCheck(unittest.TestCase):
@@ -35,6 +36,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         init_operational_export(cls.app, app_module)
         init_client_classification(cls.app, app_module)
         init_property_profiles(cls.app, app_module)
+        init_scenarios(cls.app, app_module)
 
         with cls.app.app_context():
             for role, email in [
@@ -291,6 +293,9 @@ class OperatorAccountsCheck(unittest.TestCase):
         workbook = load_workbook(BytesIO(response.data), read_only=True)
         self.assertIn("Immobili", workbook.sheetnames)
         self.assertIn("Storico immobili", workbook.sheetnames)
+        self.assertIn("Scenari", workbook.sheetnames)
+        self.assertIn("Costi scenari", workbook.sheetnames)
+        self.assertIn("Storico scenari", workbook.sheetnames)
         headers = [cell.value for cell in next(workbook["Immobili"].iter_rows(max_row=1))]
         self.assertIn("Trasformabilità", headers)
         self.assertIn("Costo lavori minimo", headers)
@@ -371,6 +376,49 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertEqual(sum(row["weight"] for row in matched["criteria"]), 100)
         self.assertIn("excluded_items", matched["economics"])
 
+        scenario_created = admin.post("/api/staff/scenarios", json={
+            "property_id": property_id, "client_id": client_id,
+            "name": "Scenario famiglia equilibrato", "scenario_type": "Equilibrato",
+            "status": "Da verificare", "description": "Ridistribuzione interna da validare.",
+            "projected_sqm": 82, "projected_beds": 2, "projected_baths": 2,
+            "months_min": 4, "months_max": 7,
+            "assumptions": "Misure da rilievo preliminare.",
+            "constraints": "Verifica urbanistica necessaria.",
+            "technical_validation": "Da verificare",
+        })
+        self.assertEqual(scenario_created.status_code, 201, scenario_created.get_json())
+        scenario_id = scenario_created.get_json()["scenario"]["id"]
+        self.assertEqual(scenario_created.get_json()["scenario"]["version"], 1)
+
+        invalid_item = admin.post(f"/api/staff/scenarios/{scenario_id}/cost-items", json={
+            "category": "Finiture", "description": "Pavimenti", "quantity": 82,
+            "unit": "m²", "unit_price_min": 80, "unit_price_max": 60,
+        })
+        self.assertEqual(invalid_item.status_code, 400, invalid_item.get_json())
+
+        item_added = admin.post(f"/api/staff/scenarios/{scenario_id}/cost-items", json={
+            "category": "Demolizioni e opere edili", "description": "Opere interne",
+            "quantity": 82, "unit": "m²", "unit_price_min": 500,
+            "unit_price_max": 650, "source": "Preventivo preliminare",
+            "reliability": "Dichiarato",
+        })
+        self.assertEqual(item_added.status_code, 201, item_added.get_json())
+        scenario = item_added.get_json()["scenario"]
+        self.assertEqual(scenario["version"], 2)
+        self.assertEqual(scenario["totals"]["known_total_min"], 281000)
+        self.assertEqual(scenario["totals"]["known_total_max"], 293300)
+        self.assertFalse(scenario["totals"]["complete"])
+
+        scenario_updated = admin.patch(f"/api/staff/scenarios/{scenario_id}", json={
+            "status": "Validato dal tecnico", "technical_validation": "Verificato",
+            "change_note": "Validazione distributiva completata",
+        })
+        self.assertEqual(scenario_updated.status_code, 200, scenario_updated.get_json())
+        self.assertEqual(scenario_updated.get_json()["scenario"]["version"], 3)
+        scenario_detail = admin.get(f"/api/staff/scenarios/{scenario_id}")
+        self.assertEqual(scenario_detail.status_code, 200, scenario_detail.get_json())
+        self.assertEqual([row["version"] for row in scenario_detail.get_json()["scenario"]["revisions"][:3]], [3, 2, 1])
+
         detail = admin.get(f"/api/staff/properties/{property_id}")
         self.assertEqual(detail.status_code, 200, detail.get_json())
         revisions = detail.get_json()["revisions"]
@@ -389,6 +437,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         admin.patch(f"/api/admin/clients/{client_id}/classification", json={"is_test": True, "archived": False})
         deleted = admin.delete(f"/api/admin/clients/{client_id}/test-data", json={"confirm": "ELIMINA"})
         self.assertEqual(deleted.status_code, 200, deleted.get_json())
+        self.assertEqual(admin.get(f"/api/staff/scenarios/{scenario_id}").status_code, 404)
 
     def test_admin_can_separate_test_clients_and_archive_without_deleting(self):
         profile = {

@@ -144,6 +144,44 @@ def init_operational_export(app, app_module):
             row.change_note, _iso(row.created_at), row.snapshot_json,
         ) for row in revisions])
 
+        scenario_ext = app.extensions.get("aplsai_scenarios") or {}
+        Scenario = scenario_ext.get("PropertyScenario")
+        CostItem = scenario_ext.get("ScenarioCostItem")
+        ScenarioRevision = scenario_ext.get("ScenarioRevision")
+        scenarios = Scenario.query.order_by(Scenario.id.asc()).all() if Scenario else []
+        scenario_dict = scenario_ext.get("scenario_dict")
+        _sheet(wb, "Scenari", [
+            "ID", "ID immobile", "Riferimento", "ID cliente", "Nome cliente", "Nome scenario",
+            "Tipo", "Stato", "Descrizione", "Mq risultanti", "Camere risultanti",
+            "Bagni risultanti", "Mesi minimi", "Mesi massimi", "Ipotesi", "Vincoli",
+            "Validazione tecnica", "Versione", "Totale conosciuto minimo",
+            "Totale conosciuto massimo", "Voci mancanti", "Archiviato il", "Aggiornato il",
+        ], [(
+            row.id, row.property_id, data.get("property_ref"), row.client_id, data.get("client_name"),
+            row.name, row.scenario_type, row.status, row.description, row.projected_sqm,
+            row.projected_beds, row.projected_baths, row.months_min, row.months_max,
+            row.assumptions, row.constraints, row.technical_validation, row.version,
+            data["totals"]["known_total_min"], data["totals"]["known_total_max"],
+            ", ".join(data["totals"]["missing_categories"]), _iso(row.archived_at), _iso(row.updated_at),
+        ) for row in scenarios for data in [scenario_dict(row)]])
+        cost_items = CostItem.query.order_by(CostItem.scenario_id.asc(), CostItem.id.asc()).all() if CostItem else []
+        _sheet(wb, "Costi scenari", [
+            "ID voce", "ID scenario", "Categoria", "Descrizione", "Quantità", "Unità",
+            "Prezzo unitario minimo", "Prezzo unitario massimo", "Totale minimo", "Totale massimo",
+            "Fonte", "Affidabilità", "Creato il",
+        ], [(
+            row.id, row.scenario_id, row.category, row.description, row.quantity, row.unit,
+            row.unit_price_min, row.unit_price_max, row.quantity * row.unit_price_min,
+            row.quantity * row.unit_price_max, row.source, row.reliability, _iso(row.created_at),
+        ) for row in cost_items])
+        scenario_revisions = ScenarioRevision.query.order_by(ScenarioRevision.scenario_id.asc(), ScenarioRevision.version.asc()).all() if ScenarioRevision else []
+        _sheet(wb, "Storico scenari", [
+            "ID revisione", "ID scenario", "Versione", "ID autore", "Motivo", "Data", "Fotografia JSON",
+        ], [(
+            row.id, row.scenario_id, row.version, row.changed_by_user_id,
+            row.change_note, _iso(row.created_at), row.snapshot_json,
+        ) for row in scenario_revisions])
+
         operations_ext = app.extensions.get("aplsai_operations") or {}
         Operation = operations_ext.get("ClientOperation")
         operations = Operation.query.order_by(Operation.client_id.asc()).all() if Operation else []
