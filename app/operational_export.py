@@ -474,6 +474,30 @@ def init_operational_export(app, app_module):
             bool(next((rule.version == row.rule_version for rule in rules if rule.id == row.rule_id), False)),
             _iso(row.acknowledged_at),
         ) for row in acknowledgements])
+        tasks_ext = app.extensions.get("aplsai_work_tasks") or {}
+        WorkTask = tasks_ext.get("WorkTask")
+        WorkTaskUpdate = tasks_ext.get("WorkTaskUpdate")
+        tasks = WorkTask.query.order_by(WorkTask.id.asc()).all() if WorkTask else []
+        names = {user.id: user.name for user in app_module.User.query.all()}
+        _sheet(wb, "Incarichi staff", [
+            "ID", "Titolo", "Descrizione", "Categoria", "Priorità", "Stato",
+            "ID responsabile", "Responsabile", "Scadenza", "Collegato a", "ID collegamento",
+            "Risultato", "Motivo blocco", "Nota approvazione", "Completato il",
+            "Approvato il", "ID approvatore", "Creato il", "Aggiornato il",
+        ], [(
+            row.id, row.title, row.description, row.category, row.priority, row.status,
+            row.assigned_to_user_id, names.get(row.assigned_to_user_id, ""), _iso(row.due_at),
+            row.link_type, row.link_id, row.completion_note, row.blocked_reason,
+            row.approval_note, _iso(row.completed_at), _iso(row.approved_at),
+            row.approved_by_user_id, _iso(row.created_at), _iso(row.updated_at),
+        ) for row in tasks])
+        task_updates = WorkTaskUpdate.query.order_by(WorkTaskUpdate.id.asc()).all() if WorkTaskUpdate else []
+        _sheet(wb, "Aggiornamenti incarichi", [
+            "ID", "ID incarico", "ID autore", "Autore", "Tipo", "Messaggio", "Data",
+        ], [(
+            row.id, row.task_id, row.author_user_id, names.get(row.author_user_id, ""),
+            row.update_type, row.message, _iso(row.created_at),
+        ) for row in task_updates])
         Audit = operations_ext.get("AuditEvent")
         events = Audit.query.order_by(Audit.id.asc()).all() if Audit else []
         _sheet(wb, "Audit", ["ID", "ID autore", "Azione", "Tipo oggetto", "ID oggetto", "Esito", "Dettaglio", "Data"], [

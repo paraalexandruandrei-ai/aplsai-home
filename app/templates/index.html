@@ -292,6 +292,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
       </div>
       <div class="staff-tabs">
         <button class="staff-tab active" onclick="staffTab('today',this)">Oggi</button>
+        <button class="staff-tab" id="staffTasksTab" onclick="staffTab('tasks',this)">Incarichi</button>
         <button class="staff-tab" onclick="staffTab('clients',this)">Clienti</button>
         <button class="staff-tab" onclick="staffTab('opportunities',this)">Opportunità</button>
         <button class="staff-tab" onclick="staffTab('outreach',this)">Contatti immobili</button>
@@ -305,6 +306,29 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         <button class="staff-tab" onclick="staffTab('deals',this)">Trattative</button><button class="staff-tab" onclick="staffTab('referrals',this)">Referral</button><button class="staff-tab" onclick="staffTab('documents',this)">Documenti</button><button class="staff-tab" onclick="staffTab('protocol',this)">Regole staff</button><button class="staff-tab" id="staffCollaboratorsTab" onclick="staffTab('collaborators',this)">Collaboratori</button><button class="staff-tab" id="staffExportTab" onclick="staffTab('export',this)">Esportazione</button><button class="staff-tab" onclick="staffTab('security',this)">Sicurezza</button>
       </div>
       <div id="staff-today" class="staff-panel"><div id="todayGrid" class="area-grid"></div></div>
+      <div id="staff-tasks" class="staff-panel" style="display:none"><div class="area-grid">
+        <article class="area-card" id="taskAdminCard">
+          <h3 id="taskFormTitle">Nuovo incarico</h3>
+          <input id="taskId" type="hidden">
+          <label>Titolo</label><input id="taskTitle" placeholder="Es. Verificare documenti dell’immobile">
+          <label>Istruzioni e risultato atteso</label><textarea id="taskDescription" rows="5" placeholder="Indica cosa deve essere fatto e quale risultato deve essere consegnato"></textarea>
+          <div class="two"><div><label>Categoria</label><select id="taskCategory"><option>Clienti</option><option>Ricerca immobili</option><option>Contatti</option><option>Analisi tecnica</option><option>Documenti</option><option>Amministrazione</option><option>Cantiere</option><option>Altro</option></select></div><div><label>Priorità</label><select id="taskPriority"><option>Normale</option><option>Alta</option><option>Urgente</option><option>Bloccante</option></select></div></div>
+          <label>Responsabile</label><select id="taskAssignee"><option value="">Seleziona collaboratore</option></select>
+          <label>Scadenza</label><input id="taskDue" type="datetime-local">
+          <div class="two"><div><label>Collegato a</label><select id="taskLinkType"><option>Generale</option><option>Cliente</option><option>Immobile</option><option>Opportunità</option><option>Trattativa</option></select></div><div><label>ID collegamento</label><input id="taskLinkId" placeholder="Facoltativo"></div></div>
+          <button class="primary full" onclick="saveWorkTask()">Salva incarico</button>
+          <button class="secondary full" id="taskCancel" style="display:none" onclick="resetWorkTaskForm()">Annulla modifica</button>
+          <p class="hint">Responsabile e scadenza sono obbligatori. La conclusione richiede la verifica finale dell’Admin.</p>
+        </article>
+        <article class="area-card">
+          <h3>Incarichi operativi</h3>
+          <div class="sum" id="taskSummary"><b>Caricamento…</b></div>
+          <label>Visualizza</label><select id="taskFilter" onchange="renderWorkTaskList()"><option value="Attivi">Attivi</option><option value="Tutte">Tutte</option><option>Da fare</option><option>In corso</option><option>In verifica</option><option>Bloccata</option><option>Completata</option></select>
+          <div id="taskNotifications"></div>
+          <div id="taskList"></div>
+        </article>
+        <article class="area-card" id="taskDetailCard" style="display:none"><div id="taskDetail"></div></article>
+      </div></div>
       <div id="staff-clients" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Clienti</h3><label>Visualizza</label><select id="clientDataFilter" onchange="renderClientRegistry()"><option value="real">Clienti reali</option><option value="test">Dati di prova</option><option value="archived">Archiviati</option><option value="all">Tutti</option></select><div id="staffClientList"></div></article><article class="area-card"><h3>Scheda cliente</h3><div id="staffClientDetail">Seleziona un cliente.</div></article></div></div>
       <div id="staff-opportunities" class="staff-panel" style="display:none"><div class="area-grid">
         <article class="area-card"><h3 id="opportunityFormTitle">Nuova opportunità</h3>
@@ -902,7 +926,7 @@ async function api(path, options={}){
     ...options
   });
   const data=await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(data.error||"Errore server");
+  if(!res.ok){const error=new Error(data.error||"Errore server");Object.assign(error,data);throw error;}
   return data;
 }
 
@@ -1100,12 +1124,14 @@ async function loadStaffAccountTools(){
       if(panel)panel.style.display='none';
       if(exportTab)exportTab.style.display='none';
       if(exportPanel)exportPanel.style.display='none';
+      await loadWorkTasks();
       return;
     }
     if(tab)tab.style.display='';
     if(exportTab)exportTab.style.display='';
     if(typeof renderClientRegistry==='function')renderClientRegistry();
     await loadOperators();
+    await loadWorkTasks();
   }catch(_){}
 }
 
@@ -1118,7 +1144,9 @@ async function loadOperators(){
   if(!box)return;
   try{
     const d=await api('/api/admin/operators');
+    window.__operators=d.operators||[];
     box.innerHTML=(d.operators||[]).map(operatorRowHtml).join('')||'<p>Nessun collaboratore.</p>';
+    const select=document.getElementById('taskAssignee');if(select)select.innerHTML='<option value="">Seleziona collaboratore</option>'+(d.operators||[]).filter(x=>x.active).map(x=>`<option value="${Number(x.id)}">${escapeHtml(x.name)}</option>`).join('');
   }catch(e){box.textContent=e.message||'Impossibile caricare i collaboratori.';}
 }
 
@@ -1544,6 +1572,22 @@ window.saveStaffRule=async function(){const id=document.getElementById('staffRul
 window.editStaffRule=function(id){const x=(window.__staffProtocol?.rules||[]).find(r=>Number(r.id)===Number(id));if(!x)return;document.getElementById('staffRuleId').value=x.id;document.getElementById('staffRuleCategory').value=x.category;document.getElementById('staffRuleTitle').value=x.title;document.getElementById('staffRuleInstructions').value=x.instructions;document.getElementById('staffRulePriority').value=x.priority;document.getElementById('staffRuleAudience').value=x.audience;document.getElementById('staffRuleMandatory').checked=x.mandatory;document.getElementById('staffRuleOrder').value=x.sort_order;document.getElementById('staffRuleFormTitle').textContent='Modifica regola operativa';document.getElementById('staffRuleCancel').style.display='block';document.getElementById('staffRuleAdminCard').scrollIntoView({behavior:'smooth',block:'start'});};
 window.resetStaffRuleForm=function(){document.getElementById('staffRuleId').value='';document.getElementById('staffRuleCategory').value='Ricerca immobili';document.getElementById('staffRuleTitle').value='';document.getElementById('staffRuleInstructions').value='';document.getElementById('staffRulePriority').value='Normale';document.getElementById('staffRuleAudience').value='Tutto lo staff';document.getElementById('staffRuleMandatory').checked=true;document.getElementById('staffRuleOrder').value=100;document.getElementById('staffRuleFormTitle').textContent='Nuova regola operativa';document.getElementById('staffRuleCancel').style.display='none';};
 window.toggleStaffRule=async function(id,active){if(!confirm(active?'Riattivare questa regola?':'Disattivare questa regola conservandone lo storico?'))return;try{await api(`/api/admin/staff-rules/${id}`,{method:'PATCH',body:JSON.stringify({active})});await loadStaffProtocol();}catch(e){alert(e.message||'Impossibile aggiornare la regola.');}};
+
+function workTaskDate(value){return value?new Date(value).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'short'}):'Senza scadenza';}
+function workTaskInputDate(value){if(!value)return'';const d=new Date(value);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
+function renderWorkTaskToday(){const old=document.getElementById('workTaskToday');if(old)old.remove();const grid=document.getElementById('todayGrid'),d=window.__workTasks;if(!grid||!d)return;const active=(d.tasks||[]).filter(x=>!['Completata','Annullata'].includes(x.status)).slice(0,5);grid.insertAdjacentHTML('afterbegin',`<article class="area-card" id="workTaskToday"><h3>Incarichi da seguire</h3><div class="sum"><b>${Number(d.summary?.active||0)} attivi · ${Number(d.summary?.overdue||0)} scaduti</b><small>${Number(d.summary?.pending_approval||0)} in attesa di verifica Admin</small></div>${active.map(x=>`<div class="list-row" onclick="showWorkTask(${Number(x.id)})" style="cursor:pointer"><b>${escapeHtml(x.title)}</b><br><small>${escapeHtml(x.status)} · ${escapeHtml(x.assigned_to_name||'Da assegnare')}<br>${x.overdue?'⚠ Scaduto: ':'Scadenza: '}${escapeHtml(workTaskDate(x.due_at))}</small></div>`).join('')||'<p>Nessun incarico attivo.</p>'}</article>`);}
+window.showWorkTask=function(id){const tab=document.getElementById('staffTasksTab');if(tab)staffTab('tasks',tab);openWorkTask(id);};
+async function loadWorkTasks(){
+ try{const d=await api('/api/staff/tasks');window.__workTasks=d;const admin=document.getElementById('taskAdminCard');if(admin)admin.style.display=window.__staffRole==='admin'?'block':'none';const s=d.summary||{},sum=document.getElementById('taskSummary');if(sum)sum.innerHTML=`<b>${Number(s.active||0)} attivi · ${Number(s.overdue||0)} scaduti</b><small>${Number(s.pending_approval||0)} in verifica${window.__staffRole==='admin'?` · ${Number(s.unassigned||0)} senza responsabile`:''}</small>`;const notes=document.getElementById('taskNotifications');if(notes)notes.innerHTML=(d.notifications||[]).map(n=>`<div class="sum"><b>${escapeHtml(n.level)}</b><small>${escapeHtml(n.message)}</small></div>`).join('');renderWorkTaskList();renderWorkTaskToday();}catch(e){const box=document.getElementById('taskList');if(box)box.textContent=e.message||'Incarichi non disponibili.';}
+}
+function renderWorkTaskList(){const box=document.getElementById('taskList');if(!box)return;const filter=document.getElementById('taskFilter')?.value||'Attivi';let rows=window.__workTasks?.tasks||[];if(filter==='Attivi')rows=rows.filter(x=>!['Completata','Annullata'].includes(x.status));else if(filter!=='Tutte')rows=rows.filter(x=>x.status===filter);box.innerHTML=rows.map(x=>`<div class="list-row"><b>${escapeHtml(x.title)}</b><br><small>${escapeHtml(x.category)} · ${escapeHtml(x.priority)} · ${escapeHtml(x.status)}<br>Responsabile: ${escapeHtml(x.assigned_to_name||'Da assegnare')}<br>${x.overdue?'⚠ Scaduto: ':'Scadenza: '}${escapeHtml(workTaskDate(x.due_at))}</small><button class="secondary full" onclick="openWorkTask(${Number(x.id)})">Apri incarico</button></div>`).join('')||'<p>Nessun incarico in questa sezione.</p>';}
+window.openWorkTask=async function(id){try{const d=await api(`/api/staff/tasks/${id}`),x=d.task;window.__currentWorkTask=x;const updates=(x.updates||[]).map(u=>`<div class="sum"><b>${escapeHtml(u.type)} · ${escapeHtml(u.author_name)}</b><small>${escapeHtml(workTaskDate(u.created_at))}</small><p>${escapeHtml(u.message)}</p></div>`).join('')||'<p>Nessun aggiornamento.</p>';const adminButtons=window.__staffRole==='admin'&&x.status==='In verifica'?`<label>Nota della verifica</label><textarea id="taskDecisionNote" rows="3"></textarea><button class="primary full" onclick="decideWorkTask(${Number(x.id)},true)">Approva risultato</button><button class="secondary full" onclick="decideWorkTask(${Number(x.id)},false)">Richiedi correzioni</button>`:'';const edit=window.__staffRole==='admin'?`<button class="secondary full" onclick="editWorkTask(${Number(x.id)})">Modifica assegnazione</button>`:'';document.getElementById('taskDetail').innerHTML=`<h3>${escapeHtml(x.title)}</h3><div class="sum"><b>${escapeHtml(x.status)} · ${escapeHtml(x.priority)}</b><small>Responsabile: ${escapeHtml(x.assigned_to_name||'Da assegnare')}<br>Scadenza: ${escapeHtml(workTaskDate(x.due_at))}${x.link_type!=='Generale'?`<br>${escapeHtml(x.link_type)}: ${escapeHtml(x.link_id||'da indicare')}`:''}</small></div><p style="white-space:pre-wrap">${escapeHtml(x.description)}</p>${x.approval_note?`<div class="sum"><b>Nota Admin</b><small>${escapeHtml(x.approval_note)}</small></div>`:''}<label>Stato del lavoro</label><select id="taskStatus"><option ${x.status==='Da fare'?'selected':''}>Da fare</option><option ${x.status==='In corso'?'selected':''}>In corso</option><option ${x.status==='In verifica'?'selected':''}>In verifica</option><option ${x.status==='Bloccata'?'selected':''}>Bloccata</option>${window.__staffRole==='admin'?`<option ${x.status==='Annullata'?'selected':''}>Annullata</option>`:''}</select><label>Risultato ottenuto</label><textarea id="taskCompletionNote" rows="4" placeholder="Obbligatorio per richiedere la verifica">${escapeHtml(x.completion_note||'')}</textarea><label>Motivo del blocco</label><textarea id="taskBlockedReason" rows="3" placeholder="Obbligatorio se l’attività è bloccata">${escapeHtml(x.blocked_reason||'')}</textarea><label>Aggiornamento sul lavoro</label><textarea id="taskUpdateNote" rows="3"></textarea><button class="primary full" onclick="updateWorkTask(${Number(x.id)})">Salva avanzamento</button>${edit}${adminButtons}<details open><summary>Storico aggiornamenti</summary>${updates}</details><label>Nuova nota</label><textarea id="taskComment" rows="3"></textarea><button class="secondary full" onclick="commentWorkTask(${Number(x.id)})">Aggiungi nota</button>`;const card=document.getElementById('taskDetailCard');card.style.display='block';card.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){alert(e.message||'Impossibile aprire l’incarico.');}};
+window.saveWorkTask=async function(){const id=document.getElementById('taskId').value,due=document.getElementById('taskDue').value,payload={title:(document.getElementById('taskTitle').value||'').trim(),description:(document.getElementById('taskDescription').value||'').trim(),category:document.getElementById('taskCategory').value,priority:document.getElementById('taskPriority').value,assigned_to_user_id:document.getElementById('taskAssignee').value,due_at:due?new Date(due).toISOString():'',link_type:document.getElementById('taskLinkType').value,link_id:(document.getElementById('taskLinkId').value||'').trim(),update_note:id?'Incarico modificato dall’Admin.':''};try{await api(id?`/api/staff/tasks/${id}`:'/api/admin/tasks',{method:id?'PATCH':'POST',body:JSON.stringify(payload)});resetWorkTaskForm();await loadWorkTasks();}catch(e){alert(e.message||'Impossibile salvare l’incarico.');}};
+window.editWorkTask=function(id){const x=window.__currentWorkTask;if(!x||Number(x.id)!==Number(id))return;document.getElementById('taskId').value=x.id;document.getElementById('taskTitle').value=x.title;document.getElementById('taskDescription').value=x.description;document.getElementById('taskCategory').value=x.category;document.getElementById('taskPriority').value=x.priority;document.getElementById('taskAssignee').value=x.assigned_to_user_id||'';document.getElementById('taskDue').value=workTaskInputDate(x.due_at);document.getElementById('taskLinkType').value=x.link_type;document.getElementById('taskLinkId').value=x.link_id||'';document.getElementById('taskFormTitle').textContent='Modifica incarico';document.getElementById('taskCancel').style.display='block';document.getElementById('taskAdminCard').scrollIntoView({behavior:'smooth',block:'start'});};
+window.resetWorkTaskForm=function(){['taskId','taskTitle','taskDescription','taskDue','taskLinkId'].forEach(id=>document.getElementById(id).value='');document.getElementById('taskCategory').value='Clienti';document.getElementById('taskPriority').value='Normale';document.getElementById('taskAssignee').value='';document.getElementById('taskLinkType').value='Generale';document.getElementById('taskFormTitle').textContent='Nuovo incarico';document.getElementById('taskCancel').style.display='none';};
+window.updateWorkTask=async function(id){const payload={status:document.getElementById('taskStatus').value,completion_note:(document.getElementById('taskCompletionNote').value||'').trim(),blocked_reason:(document.getElementById('taskBlockedReason').value||'').trim(),update_note:(document.getElementById('taskUpdateNote').value||'').trim()};try{await api(`/api/staff/tasks/${id}`,{method:'PATCH',body:JSON.stringify(payload)});await loadWorkTasks();await openWorkTask(id);}catch(e){if(e.code==='STAFF_PROTOCOL_REQUIRED')alert('Prima conferma tutte le regole obbligatorie nella sezione Regole staff.');else alert(e.message||'Impossibile aggiornare l’incarico.');}};
+window.commentWorkTask=async function(id){const message=(document.getElementById('taskComment').value||'').trim();if(!message)return;try{await api(`/api/staff/tasks/${id}/comments`,{method:'POST',body:JSON.stringify({message})});await openWorkTask(id);}catch(e){alert(e.message||'Impossibile aggiungere la nota.');}};
+window.decideWorkTask=async function(id,approved){const note=(document.getElementById('taskDecisionNote').value||'').trim();if(!approved&&!note){alert('Indica le correzioni richieste.');return;}if(approved&&!confirm('Confermi che il risultato è stato verificato e approvato?'))return;try{await api(`/api/admin/tasks/${id}/decision`,{method:'POST',body:JSON.stringify({approved,note})});await loadWorkTasks();await openWorkTask(id);}catch(e){alert(e.message||'Impossibile registrare la decisione.');}};
 
 function matchMoney(value){return value===null||value===undefined?'Da verificare':'€'+Number(value).toLocaleString('it-IT');}
 function matchStatus(value){return ({compatibile:'Compatibile',non_compatibile:'Non compatibile',parziale:'Parziale',da_verificare:'Da verificare',entro_ideale:'Entro budget ideale',entro_massimo:'Entro budget massimo',con_flessibilita:'Con flessibilità',fuori_budget:'Fuori budget'})[value]||value||'Da verificare';}

@@ -30,6 +30,7 @@ from app.capacity import init_capacity
 from app.opportunities import init_opportunities
 from app.outreach import init_outreach
 from app.staff_protocol import init_staff_protocol
+from app.work_tasks import init_work_tasks
 
 
 class OperatorAccountsCheck(unittest.TestCase):
@@ -51,6 +52,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         init_opportunities(cls.app, app_module)
         init_outreach(cls.app, app_module)
         init_staff_protocol(cls.app, app_module)
+        init_work_tasks(cls.app, app_module)
 
         with cls.app.app_context():
             for role, email in [
@@ -350,6 +352,8 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertIn("Risposte immobili", workbook.sheetnames)
         self.assertIn("Regole staff", workbook.sheetnames)
         self.assertIn("Prese visione staff", workbook.sheetnames)
+        self.assertIn("Incarichi staff", workbook.sheetnames)
+        self.assertIn("Aggiornamenti incarichi", workbook.sheetnames)
         headers = [cell.value for cell in next(workbook["Immobili"].iter_rows(max_row=1))]
         self.assertIn("Trasformabilità", headers)
         self.assertIn("Costo lavori minimo", headers)
