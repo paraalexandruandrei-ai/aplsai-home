@@ -302,7 +302,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         <button class="staff-tab" onclick="staffTab('portfolio',this)">Portafoglio</button>
         <button class="staff-tab" onclick="staffTab('capacity',this)">Capacità</button>
         <button class="staff-tab" onclick="staffTab('matching',this)">Matching</button>
-        <button class="staff-tab" onclick="staffTab('deals',this)">Trattative</button><button class="staff-tab" onclick="staffTab('referrals',this)">Referral</button><button class="staff-tab" onclick="staffTab('documents',this)">Documenti</button><button class="staff-tab" id="staffCollaboratorsTab" onclick="staffTab('collaborators',this)">Collaboratori</button><button class="staff-tab" id="staffExportTab" onclick="staffTab('export',this)">Esportazione</button><button class="staff-tab" onclick="staffTab('security',this)">Sicurezza</button>
+        <button class="staff-tab" onclick="staffTab('deals',this)">Trattative</button><button class="staff-tab" onclick="staffTab('referrals',this)">Referral</button><button class="staff-tab" onclick="staffTab('documents',this)">Documenti</button><button class="staff-tab" onclick="staffTab('protocol',this)">Regole staff</button><button class="staff-tab" id="staffCollaboratorsTab" onclick="staffTab('collaborators',this)">Collaboratori</button><button class="staff-tab" id="staffExportTab" onclick="staffTab('export',this)">Esportazione</button><button class="staff-tab" onclick="staffTab('security',this)">Sicurezza</button>
       </div>
       <div id="staff-today" class="staff-panel"><div id="todayGrid" class="area-grid"></div></div>
       <div id="staff-clients" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Clienti</h3><label>Visualizza</label><select id="clientDataFilter" onchange="renderClientRegistry()"><option value="real">Clienti reali</option><option value="test">Dati di prova</option><option value="archived">Archiviati</option><option value="all">Tutti</option></select><div id="staffClientList"></div></article><article class="area-card"><h3>Scheda cliente</h3><div id="staffClientDetail">Seleziona un cliente.</div></article></div></div>
@@ -369,6 +369,26 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
           <h3>Centro notifiche immobili</h3>
           <div id="outreachNotifications"></div>
           <div id="outreachDetail" style="display:none"></div>
+        </article>
+      </div></div>
+      <div id="staff-protocol" class="staff-panel" style="display:none"><div class="area-grid">
+        <article class="area-card" id="staffRuleAdminCard">
+          <h3 id="staffRuleFormTitle">Nuova regola operativa</h3>
+          <input id="staffRuleId" type="hidden">
+          <label>Categoria</label><select id="staffRuleCategory"><option>Ricerca immobili</option><option>Contatti</option><option>Dati e documenti</option><option>Clienti</option><option>Privacy</option><option>Decisioni</option><option>Qualità</option></select>
+          <label>Titolo</label><input id="staffRuleTitle" placeholder="Regola chiara e breve">
+          <label>Istruzioni da seguire</label><textarea id="staffRuleInstructions" rows="6" placeholder="Indica cosa deve fare lo staff, quali controlli eseguire e quando fermarsi"></textarea>
+          <div class="two"><div><label>Priorità</label><select id="staffRulePriority"><option>Normale</option><option>Alta</option><option>Bloccante</option></select></div><div><label>Destinatari</label><select id="staffRuleAudience"><option>Tutto lo staff</option><option>Operatori</option><option>Admin</option></select></div></div>
+          <label class="hint"><input id="staffRuleMandatory" type="checkbox" checked> Conferma di presa visione obbligatoria</label>
+          <label>Ordine di visualizzazione</label><input id="staffRuleOrder" type="number" min="0" value="100">
+          <button class="primary full" onclick="saveStaffRule()">Salva regola</button>
+          <button class="secondary full" id="staffRuleCancel" style="display:none" onclick="resetStaffRuleForm()">Annulla modifica</button>
+        </article>
+        <article class="area-card">
+          <h3>Protocollo operativo dello staff</h3>
+          <div class="sum" id="staffProtocolSummary"><b>Caricamento…</b></div>
+          <p class="hint">Quando l’Admin modifica una regola, la versione cambia e lo staff deve confermarla nuovamente.</p>
+          <div id="staffProtocolList"></div>
         </article>
       </div></div>
       <div id="staff-properties" class="staff-panel" style="display:none"><div class="area-grid">
@@ -1169,6 +1189,7 @@ async function renderStaffServer(){
 
   try{await loadOpportunities();}catch(_){const box=document.getElementById('opportunityList');if(box)box.innerHTML='<p>Opportunità non disponibili.</p>';}
   try{await loadOutreach();}catch(_){const box=document.getElementById('outreachNotifications');if(box)box.innerHTML='<p>Centro contatti non disponibile.</p>';}
+  try{await loadStaffProtocol();}catch(_){const box=document.getElementById('staffProtocolList');if(box)box.innerHTML='<p>Protocollo non disponibile.</p>';}
 
   document.getElementById("matchClient").innerHTML=realClients.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
   document.getElementById("matchProperty").innerHTML=activeProps.map(p=>`<option value="${p.id}">${p.ref} · ${p.zone}</option>`).join("");
@@ -1505,6 +1526,22 @@ window.approveInquiry=async function(id){if(!confirm('Approvi destinatario e tes
 window.markInquirySent=async function(id){if(!confirm('Confermi che il messaggio è stato realmente inviato dalla casella APLSAI?'))return;try{await api(`/api/staff/inquiries/${id}/mark-sent`,{method:'POST',body:'{}'});await loadOutreach();await openInquiry(id);}catch(e){alert(e.message||'Impossibile registrare l’invio.');}};
 window.captureReply=async function(id){try{const d=await api(`/api/staff/inquiries/${id}/replies`,{method:'POST',body:JSON.stringify({sender_email:(document.getElementById('replySender').value||'').trim(),body:(document.getElementById('replyBody').value||'').trim()})});await loadOutreach();await openInquiry(id);if(!Object.keys(d.reply.extracted?.suggested_updates||{}).length)alert('Risposta registrata. Nessun dato certo è stato riconosciuto: esaminala manualmente.');}catch(e){alert(e.message||'Impossibile acquisire la risposta.');}};
 window.confirmReply=async function(replyId){const suggestions=window.__currentInquiryReplies?.[replyId]||{};if(!Object.keys(suggestions).length){alert('Non ci sono dati riconosciuti da applicare. Aggiorna manualmente la scheda opportunità.');return;}const summary=Object.entries(suggestions).map(([k,v])=>`${k}: ${v}`).join('\n');if(!confirm('Confermi questi dati prima di aggiornare la scheda?\n\n'+summary))return;try{const d=await api(`/api/staff/inquiry-replies/${replyId}/apply`,{method:'POST',body:JSON.stringify({confirmed_updates:suggestions})});await loadOpportunities();await loadOutreach();await openInquiry(d.inquiry.id);}catch(e){alert(e.message||'Impossibile applicare i dati.');}};
+
+async function loadStaffProtocol(){
+ const d=await api('/api/staff/protocol'+(window.__staffRole==='admin'?'?include_inactive=1':''));window.__staffProtocol=d;
+ const adminCard=document.getElementById('staffRuleAdminCard');if(adminCard)adminCard.style.display=window.__staffRole==='admin'?'block':'none';
+ const s=d.summary||{},summary=document.getElementById('staffProtocolSummary');if(summary)summary.innerHTML=`<b>${Number(s.acknowledged||0)} di ${Number(s.mandatory||0)} regole obbligatorie confermate</b>${Number(s.pending||0)?'<small>Completa le prese visioni ancora mancanti.</small>':'<small>Protocollo aggiornato.</small>'}`;
+ renderStaffProtocol();
+}
+function renderStaffProtocol(){
+ const box=document.getElementById('staffProtocolList');if(!box)return;const rows=window.__staffProtocol?.rules||[];
+ box.innerHTML=rows.map(x=>`<div class="list-row" style="opacity:${x.active?1:.55}"><b>${escapeHtml(x.title)}</b><br><small>${escapeHtml(x.category)} · priorità ${escapeHtml(x.priority)} · ${escapeHtml(x.audience)} · v${Number(x.version)}${x.active?'':' · disattivata'}</small><p>${escapeHtml(x.instructions)}</p>${x.mandatory?`<strong>${x.acknowledged?'Presa visione confermata':'Presa visione richiesta'}</strong>`:''}${x.active&&!x.acknowledged?`<br><button class="primary" onclick="acknowledgeStaffRule(${Number(x.id)})">Confermo di aver letto</button>`:''}${window.__staffRole==='admin'?`<br><button class="secondary" onclick="editStaffRule(${Number(x.id)})">Modifica</button><button class="secondary" onclick="toggleStaffRule(${Number(x.id)},${!x.active})">${x.active?'Disattiva':'Riattiva'}</button>`:''}</div>`).join('')||'<p>Nessuna regola inserita.</p>';
+}
+window.acknowledgeStaffRule=async function(id){try{await api(`/api/staff/protocol/${id}/acknowledge`,{method:'POST',body:'{}'});await loadStaffProtocol();}catch(e){alert(e.message||'Impossibile confermare la presa visione.');}};
+window.saveStaffRule=async function(){const id=document.getElementById('staffRuleId').value,payload={category:document.getElementById('staffRuleCategory').value,title:(document.getElementById('staffRuleTitle').value||'').trim(),instructions:(document.getElementById('staffRuleInstructions').value||'').trim(),priority:document.getElementById('staffRulePriority').value,audience:document.getElementById('staffRuleAudience').value,mandatory:document.getElementById('staffRuleMandatory').checked,sort_order:Number(document.getElementById('staffRuleOrder').value||100)};try{await api(id?`/api/admin/staff-rules/${id}`:'/api/admin/staff-rules',{method:id?'PATCH':'POST',body:JSON.stringify(payload)});resetStaffRuleForm();await loadStaffProtocol();}catch(e){alert(e.message||'Impossibile salvare la regola.');}};
+window.editStaffRule=function(id){const x=(window.__staffProtocol?.rules||[]).find(r=>Number(r.id)===Number(id));if(!x)return;document.getElementById('staffRuleId').value=x.id;document.getElementById('staffRuleCategory').value=x.category;document.getElementById('staffRuleTitle').value=x.title;document.getElementById('staffRuleInstructions').value=x.instructions;document.getElementById('staffRulePriority').value=x.priority;document.getElementById('staffRuleAudience').value=x.audience;document.getElementById('staffRuleMandatory').checked=x.mandatory;document.getElementById('staffRuleOrder').value=x.sort_order;document.getElementById('staffRuleFormTitle').textContent='Modifica regola operativa';document.getElementById('staffRuleCancel').style.display='block';document.getElementById('staffRuleAdminCard').scrollIntoView({behavior:'smooth',block:'start'});};
+window.resetStaffRuleForm=function(){document.getElementById('staffRuleId').value='';document.getElementById('staffRuleCategory').value='Ricerca immobili';document.getElementById('staffRuleTitle').value='';document.getElementById('staffRuleInstructions').value='';document.getElementById('staffRulePriority').value='Normale';document.getElementById('staffRuleAudience').value='Tutto lo staff';document.getElementById('staffRuleMandatory').checked=true;document.getElementById('staffRuleOrder').value=100;document.getElementById('staffRuleFormTitle').textContent='Nuova regola operativa';document.getElementById('staffRuleCancel').style.display='none';};
+window.toggleStaffRule=async function(id,active){if(!confirm(active?'Riattivare questa regola?':'Disattivare questa regola conservandone lo storico?'))return;try{await api(`/api/admin/staff-rules/${id}`,{method:'PATCH',body:JSON.stringify({active})});await loadStaffProtocol();}catch(e){alert(e.message||'Impossibile aggiornare la regola.');}};
 
 function matchMoney(value){return value===null||value===undefined?'Da verificare':'€'+Number(value).toLocaleString('it-IT');}
 function matchStatus(value){return ({compatibile:'Compatibile',non_compatibile:'Non compatibile',parziale:'Parziale',da_verificare:'Da verificare',entro_ideale:'Entro budget ideale',entro_massimo:'Entro budget massimo',con_flessibilita:'Con flessibilità',fuori_budget:'Fuori budget'})[value]||value||'Da verificare';}

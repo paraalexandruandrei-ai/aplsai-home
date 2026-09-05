@@ -454,6 +454,23 @@ def init_operational_export(app, app_module):
             (u.id, u.name, u.email, "admin" if u.role == "staff" else u.role, bool(getattr(u, "active", True)), _iso(u.created_at))
             for u in staff
         ])
+        protocol_ext = app.extensions.get("aplsai_staff_protocol") or {}
+        StaffRule = protocol_ext.get("StaffRule")
+        Acknowledgement = protocol_ext.get("StaffRuleAcknowledgement")
+        rules = StaffRule.query.order_by(StaffRule.sort_order.asc(), StaffRule.id.asc()).all() if StaffRule else []
+        _sheet(wb, "Regole staff", [
+            "ID", "Categoria", "Titolo", "Istruzioni", "Priorità", "Destinatari",
+            "Obbligatoria", "Attiva", "Ordine", "Versione", "Aggiornata il",
+        ], [(
+            row.id, row.category, row.title, row.instructions, row.priority, row.audience,
+            bool(row.mandatory), bool(row.active), row.sort_order, row.version, _iso(row.updated_at),
+        ) for row in rules])
+        acknowledgements = Acknowledgement.query.order_by(Acknowledgement.rule_id.asc(), Acknowledgement.user_id.asc()).all() if Acknowledgement else []
+        _sheet(wb, "Prese visione staff", [
+            "ID", "ID regola", "ID collaboratore", "Versione regola", "Confermata il",
+        ], [(
+            row.id, row.rule_id, row.user_id, row.rule_version, _iso(row.acknowledged_at),
+        ) for row in acknowledgements])
         Audit = operations_ext.get("AuditEvent")
         events = Audit.query.order_by(Audit.id.asc()).all() if Audit else []
         _sheet(wb, "Audit", ["ID", "ID autore", "Azione", "Tipo oggetto", "ID oggetto", "Esito", "Dettaglio", "Data"], [
