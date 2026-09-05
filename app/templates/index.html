@@ -349,7 +349,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         </article>
         <article class="area-card"><h3>Archivio immobili</h3><label>Visualizza</label><select id="propertyFilter" onchange="renderPropertyRegistry()"><option value="active">Immobili attivi</option><option value="archived">Archiviati</option><option value="all">Tutti</option></select><div id="propertyList"></div><div id="propertyDetail" class="list-row" style="display:none"></div></article>
       </div></div>
-      <div id="staff-matching" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Cliente → immobili</h3><select id="matchClient"></select><button class="primary" onclick="runClientMatch()">Calcola</button><div id="clientMatchResults"></div></article><article class="area-card"><h3>Immobile → clienti</h3><select id="matchProperty"></select><button class="primary" onclick="runPropertyMatch()">Calcola</button><div id="propertyMatchResults"></div></article></div></div>
+      <div id="staff-matching" class="staff-panel" style="display:none"><p class="hint">Il calcolo distingue la casa com’è oggi dal suo potenziale dopo gli interventi. Costi accessori, finanziamento e verifiche mancanti restano sempre evidenziati.</p><div class="area-grid"><article class="area-card"><h3>Cliente → immobili</h3><select id="matchClient"></select><button class="primary" onclick="runClientMatch()">Calcola compatibilità</button><div id="clientMatchResults"></div></article><article class="area-card"><h3>Immobile → clienti</h3><select id="matchProperty"></select><button class="primary" onclick="runPropertyMatch()">Calcola compatibilità</button><div id="propertyMatchResults"></div></article></div></div>
       <div id="staff-deals" class="staff-panel" style="display:none"><div id="dealList"></div></div>
       <div id="staff-referrals" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Referral</h3><div id="staffReferralList"></div></article><article class="area-card"><h3>Regola V1</h3><p>Credito, sconto o Premium temporaneo. Nessun premio economico collegato a compravendite nella prima versione.</p></article></div></div>
       <div id="staff-documents" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Condividi documento</h3><select id="docClient"></select><input id="docTitle" placeholder="Titolo documento"><input id="docUrl" placeholder="Link documento o file"><button class="primary full" onclick="shareDocument()">Condividi</button></article><article class="area-card"><h3>Documenti condivisi</h3><div id="staffDocList"></div></article></div></div>
@@ -1123,17 +1123,28 @@ window.archiveProperty=async function(id,archived){
   }catch(e){alert(e.message||'Impossibile aggiornare l’immobile.');}
 };
 
+function matchMoney(value){return value===null||value===undefined?'Da verificare':'€'+Number(value).toLocaleString('it-IT');}
+function matchStatus(value){return ({compatibile:'Compatibile',non_compatibile:'Non compatibile',parziale:'Parziale',da_verificare:'Da verificare',entro_ideale:'Entro budget ideale',entro_massimo:'Entro budget massimo',con_flessibilita:'Con flessibilità',fuori_budget:'Fuori budget'})[value]||value||'Da verificare';}
+function renderAdvancedMatch(r,title,subtitle,clientId,propertyId){
+  const e=r.economics||{}, criteria=r.criteria||[], checks=r.verifications||[];
+  const total=e.known_total_min===null||e.known_total_max===null?'Da verificare':`${matchMoney(e.known_total_min)} – ${matchMoney(e.known_total_max)}`;
+  const details=criteria.map(c=>`<div class="sum"><b>${escapeHtml(c.label)} · ${Number(c.current_points)}/${Number(c.weight)} oggi · ${Number(c.potential_points)}/${Number(c.weight)} potenziale</b><small>${escapeHtml(matchStatus(c.current_status))} → ${escapeHtml(matchStatus(c.potential_status))}<br>${escapeHtml(c.explanation)}</small></div>`).join('');
+  const verificationList=checks.map(item=>`<li>${escapeHtml(item)}</li>`).join('');
+  return `<div class="list-row"><b>${escapeHtml(title)}</b><br><small>${escapeHtml(subtitle)}</small>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0"><span class="tag t1">Oggi ${Number(r.score_current)}/100</span><span class="tag t3">Potenziale ${Number(r.score_potential)}/100</span><span class="tag t2">Affidabilità ${Number(r.confidence)}%</span></div>
+    <strong>${escapeHtml(r.recommendation)}</strong>
+    <div class="sum"><b>Quadro economico conosciuto</b><small>Acquisto ${matchMoney(e.purchase_price)} · Acquisto + lavori ${total}<br>${escapeHtml(matchStatus(e.potential_status))}</small></div>
+    <details><summary>Perché questo risultato</summary>${details}<div class="sum"><b>Da verificare prima della proposta</b><ul>${verificationList}</ul></div><small>Versione calcolo: ${escapeHtml(r.engine_version)}</small></details>
+    <button class="primary full" onclick="makeProposalServer(${Number(clientId)},${Number(propertyId)})">Proponi</button>
+  </div>`;
+}
+
 runClientMatch=async function(){
   const id=document.getElementById("matchClient").value;
   if(!id)return;
   try{
     const d=await api("/api/staff/match/client/"+encodeURIComponent(id));
-    document.getElementById("clientMatchResults").innerHTML=d.results.map((r,i)=>
-      `<div class="list-row ${i===0?"best":""}">
-       <span class="score">${r.score}</span><b>${r.property.ref}</b><br>${r.property.zone}<br>
-       <small>${r.reason}</small><br>
-       <button class="primary" onclick="makeProposalServer('${d.client.id}','${r.property.id}','${r.property.ref}')">Proponi</button>
-       </div>`).join("")||"<p>Nessun immobile.</p>";
+    document.getElementById("clientMatchResults").innerHTML=d.results.map(r=>renderAdvancedMatch(r,r.property.ref,`${r.property.property_type||'Da definire'} · ${r.property.zone}`,d.client.id,r.property.id)).join("")||"<p>Nessun immobile.</p>";
   }catch(e){alert(e.message);}
 };
 
@@ -1142,17 +1153,13 @@ runPropertyMatch=async function(){
   if(!id)return;
   try{
     const d=await api("/api/staff/match/property/"+encodeURIComponent(id));
-    document.getElementById("propertyMatchResults").innerHTML=d.results.map((r,i)=>
-      `<div class="list-row ${i===0?"best":""}">
-       <span class="score">${r.score}</span><b>${r.client.name}</b><br>${r.client.zone.main}<br>
-       <small>${r.reason}</small><br>
-       <button class="primary" onclick="makeProposalServer('${r.client.id}','${d.property.id}','${d.property.ref}')">Proponi</button>
-       </div>`).join("")||"<p>Nessun cliente.</p>";
+    document.getElementById("propertyMatchResults").innerHTML=d.results.map(r=>renderAdvancedMatch(r,r.client.name,r.client.zone.main,r.client.id,d.property.id)).join("")||"<p>Nessun cliente.</p>";
   }catch(e){alert(e.message);}
 };
 
-window.makeProposalServer=async function(clientId,propertyId,ref){
+window.makeProposalServer=async function(clientId,propertyId){
   try{
+    const ref=(window.__staffServer?.properties||[]).find(p=>Number(p.id)===Number(propertyId))?.ref||'Immobile';
     await api("/api/staff/proposals",{
       method:"POST",
       body:JSON.stringify({client_id:clientId,property_id:propertyId,ref})

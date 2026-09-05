@@ -299,6 +299,22 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertEqual(operator.get("/api/admin/operational-export.xlsx").status_code, 403)
 
     def test_advanced_property_profile_history_validation_and_archive(self):
+        registration = self.app.test_client().post("/api/register", json={
+            "name": "Cliente Matching Avanzato",
+            "email": "advanced-match-client@example.com",
+            "phone": "+393331112233",
+            "password": "AdvancedMatch12345",
+            "profile": {
+                "zone": {"main": "Roma", "km": 15},
+                "budget": {"ideal": 290000, "max": 320000, "flex": 5},
+                "spaces": {"sqm": 80, "beds": 2, "baths": 1},
+                "timing": "6-12 mesi", "style": "Moderno essenziale",
+                "must": ["Ascensore"], "houseTypes": ["Appartamento"],
+                "purchase": ["Da ristrutturare"],
+            },
+        })
+        self.assertEqual(registration.status_code, 201, registration.get_json())
+        client_id = registration.get_json()["client"]["id"]
         admin = self.login_admin()
         created = admin.post("/api/staff/properties", json={
             "ref": "IMM-PROFILO-TEST",
@@ -346,6 +362,15 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertEqual(updated.status_code, 200, updated.get_json())
         self.assertEqual(updated.get_json()["property"]["transformation_status"], "Trasformabile")
 
+        matching = admin.get(f"/api/staff/match/client/{client_id}")
+        self.assertEqual(matching.status_code, 200, matching.get_json())
+        matched = next(row for row in matching.get_json()["results"] if row["property"]["id"] == property_id)
+        self.assertIn("score_current", matched)
+        self.assertIn("score_potential", matched)
+        self.assertEqual(matched["engine_version"], "APL-MATCH-2.0")
+        self.assertEqual(sum(row["weight"] for row in matched["criteria"]), 100)
+        self.assertIn("excluded_items", matched["economics"])
+
         detail = admin.get(f"/api/staff/properties/{property_id}")
         self.assertEqual(detail.status_code, 200, detail.get_json())
         revisions = detail.get_json()["revisions"]
@@ -360,6 +385,10 @@ class OperatorAccountsCheck(unittest.TestCase):
         restored = admin.patch(f"/api/staff/properties/{property_id}/archive", json={"archived": False})
         self.assertEqual(restored.status_code, 200, restored.get_json())
         self.assertIsNone(restored.get_json()["property"]["archived_at"])
+
+        admin.patch(f"/api/admin/clients/{client_id}/classification", json={"is_test": True, "archived": False})
+        deleted = admin.delete(f"/api/admin/clients/{client_id}/test-data", json={"confirm": "ELIMINA"})
+        self.assertEqual(deleted.status_code, 200, deleted.get_json())
 
     def test_admin_can_separate_test_clients_and_archive_without_deleting(self):
         profile = {

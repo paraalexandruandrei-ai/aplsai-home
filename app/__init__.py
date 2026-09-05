@@ -6,6 +6,8 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from .matching_engine import evaluate_match
+
 
 db = SQLAlchemy()
 
@@ -295,8 +297,9 @@ def create_app():
             return jsonify(error="Cliente non trovato."), 404
         rows = []
         for p in Property.query.filter(Property.archived_at.is_(None)).all():
-            sc, reason = match_score(c, p.to_dict())
-            rows.append({"property": p.to_dict(), "score": sc, "reason": reason})
+            property_data = p.to_dict()
+            assessment = evaluate_match(c, property_data)
+            rows.append({"property": property_data, **assessment})
         rows.sort(key=lambda x: x["score"], reverse=True)
         return jsonify(client=c, results=rows)
 
@@ -315,8 +318,8 @@ def create_app():
             ClientProfile.is_test.is_(False), ClientProfile.archived_at.is_(None)
         ).all():
             c = client_obj(cp.user_id)
-            sc, reason = match_score(c, p.to_dict())
-            rows.append({"client": c, "score": sc, "reason": reason})
+            assessment = evaluate_match(c, p.to_dict())
+            rows.append({"client": c, **assessment})
         rows.sort(key=lambda x: x["score"], reverse=True)
         return jsonify(property=p.to_dict(), results=rows)
 
@@ -586,31 +589,8 @@ def client_obj(uid):
 
 
 def match_score(c, p):
-    s = 0
-    why = []
-    if p["price"] <= c["budget"]["max"]:
-        s += 30
-        why.append("budget compatibile")
-    elif p["price"] <= c["budget"]["max"] * (1 + (c["budget"].get("flex") or 0) / 100):
-        s += 22
-        why.append("budget con flessibilità")
-    if p["zone"].lower() in c["zone"]["main"].lower() or c["zone"]["main"].lower() in p["zone"].lower():
-        s += 25
-        why.append("zona coerente")
-    else:
-        s += 10
-        why.append("zona da verificare")
-    if p["sqm"] >= c["spaces"]["sqm"]:
-        s += 20
-        why.append("metratura ok")
-    if (p["beds"] or 0) >= c["spaces"]["beds"]:
-        s += 10
-    if (p["baths"] or 0) >= c["spaces"]["baths"]:
-        s += 5
-    if p["state"] in c.get("purchase", []):
-        s += 10
-        why.append("stato coerente")
-    return min(100, s), ", ".join(why)
+    result = evaluate_match(c, p)
+    return result["score"], result["reason"]
 
 
 class User(db.Model):
