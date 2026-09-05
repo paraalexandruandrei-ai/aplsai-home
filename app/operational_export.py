@@ -181,6 +181,29 @@ def init_operational_export(app, app_module):
             row.change_note, _iso(row.created_at), row.snapshot_json,
         ) for row in opportunity_revisions])
 
+        outreach_ext = app.extensions.get("aplsai_outreach") or {}
+        Inquiry = outreach_ext.get("OpportunityInquiry")
+        Reply = outreach_ext.get("InquiryReply")
+        inquiries = Inquiry.query.order_by(Inquiry.id.asc()).all() if Inquiry else []
+        _sheet(wb, "Richieste informazioni", [
+            "ID richiesta", "ID opportunità", "Destinatario", "Email", "Verificato",
+            "Oggetto", "Stato", "Dati richiesti JSON", "Domande aggiuntive JSON",
+            "Approvata il", "Inviata il", "ID conversazione", "Creata il", "Aggiornata il",
+        ], [(
+            row.id, row.opportunity_id, row.recipient_name, row.recipient_email,
+            bool(row.recipient_verified), row.subject, row.status, row.missing_fields_json,
+            row.custom_questions_json, _iso(row.approved_at), _iso(row.sent_at),
+            row.external_thread_id, _iso(row.created_at), _iso(row.updated_at),
+        ) for row in inquiries])
+        replies = Reply.query.order_by(Reply.inquiry_id.asc(), Reply.received_at.asc()).all() if Reply else []
+        _sheet(wb, "Risposte immobili", [
+            "ID risposta", "ID richiesta", "Email mittente", "Stato", "Ricevuta il",
+            "Dati proposti JSON", "ID messaggio", "Esaminata il", "Testo risposta",
+        ], [(
+            row.id, row.inquiry_id, row.sender_email, row.status, _iso(row.received_at),
+            row.extracted_json, row.source_message_id, _iso(row.reviewed_at), row.body,
+        ) for row in replies])
+
         scenario_ext = app.extensions.get("aplsai_scenarios") or {}
         Scenario = scenario_ext.get("PropertyScenario")
         CostItem = scenario_ext.get("ScenarioCostItem")

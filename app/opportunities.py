@@ -407,5 +407,6 @@ def init_opportunities(app, app_module):
 
     app.extensions["aplsai_opportunities"] = {
         "PropertyOpportunity": PropertyOpportunity, "OpportunityRevision": OpportunityRevision,
-        "opportunity_dict": opportunity_dict,
+        "opportunity_dict": opportunity_dict, "apply_payload": apply_payload,
+        "record_revision": record_revision,
     }

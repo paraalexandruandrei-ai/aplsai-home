@@ -12,6 +12,7 @@ ROUTE_PERMISSIONS = {
     "/api/staff/portfolio": "portfolio_read",
     "/api/staff/capacity": "capacity_read",
     "/api/staff/opportunities": "opportunity_manage",
+    "/api/staff/outreach": "outreach_read",
 }
 
 PREFIX_PERMISSIONS = {
@@ -19,6 +20,8 @@ PREFIX_PERMISSIONS = {
     "/api/staff/portfolio/": "portfolio_manage",
     "/api/staff/capacity/": "capacity_manage",
     "/api/staff/opportunities/": "opportunity_manage",
+    "/api/staff/inquiries/": "outreach_manage",
+    "/api/staff/inquiry-replies/": "outreach_manage",
 }
 
 
