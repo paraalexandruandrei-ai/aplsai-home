@@ -133,7 +133,8 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
   .stats-grid{grid-template-columns:1fr 1fr}
   .app-area .wrap{padding-bottom:80px}
   .area-card{padding:14px}
-  .staff-tabs{padding-bottom:3px}
+  .staff-tabs{display:grid;grid-template-columns:1fr 1fr;overflow:visible;padding-bottom:3px}
+  .staff-tab{white-space:normal;min-height:44px;padding:9px 7px}
 }
 
 
@@ -293,7 +294,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         <button class="staff-tab" onclick="staffTab('clients',this)">Clienti</button>
         <button class="staff-tab" onclick="staffTab('properties',this)">Immobili</button>
         <button class="staff-tab" onclick="staffTab('matching',this)">Matching</button>
-        <button class="staff-tab" onclick="staffTab('deals',this)">Trattative</button><button class="staff-tab" onclick="staffTab('referrals',this)">Referral</button><button class="staff-tab" onclick="staffTab('documents',this)">Documenti</button><button class="staff-tab" id="staffCollaboratorsTab" onclick="staffTab('collaborators',this)">Collaboratori</button><button class="staff-tab" onclick="staffTab('security',this)">Sicurezza</button>
+        <button class="staff-tab" onclick="staffTab('deals',this)">Trattative</button><button class="staff-tab" onclick="staffTab('referrals',this)">Referral</button><button class="staff-tab" onclick="staffTab('documents',this)">Documenti</button><button class="staff-tab" id="staffCollaboratorsTab" onclick="staffTab('collaborators',this)">Collaboratori</button><button class="staff-tab" id="staffExportTab" onclick="staffTab('export',this)">Esportazione</button><button class="staff-tab" onclick="staffTab('security',this)">Sicurezza</button>
       </div>
       <div id="staff-today" class="staff-panel"><div id="todayGrid" class="area-grid"></div></div>
       <div id="staff-clients" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Clienti</h3><div id="staffClientList"></div></article><article class="area-card"><h3>Scheda cliente</h3><div id="staffClientDetail">Seleziona un cliente.</div></article></div></div>
@@ -323,6 +324,13 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
           <p id="operatorCreateMsg" class="hint" aria-live="polite"></p>
         </article>
         <article class="area-card"><h3>Collaboratori</h3><p class="hint">La disattivazione blocca l’accesso ma conserva lo storico.</p><div id="operatorList">Caricamento…</div></article>
+      </div></div>
+      <div id="staff-export" class="staff-panel" style="display:none"><div class="area-grid">
+        <article class="area-card"><h3>Pacchetto operativo Excel</h3>
+          <p>Scarica una fotografia aggiornata dei dati inseriti nel sito. Il file contiene fogli separati per clienti, profili, immobili, pratiche, trattative, referral, documenti, collaboratori e audit.</p>
+          <button class="primary full" onclick="downloadOperationalExport()">Scarica pacchetto operativo</button>
+          <p class="hint">Il file contiene dati personali: conservalo in una cartella protetta e caricalo qui solo quando vuoi aggiornarlo.</p>
+        </article>
       </div></div>
       <div id="staff-security" class="staff-panel" style="display:none"><div class="area-grid">
         <article class="area-card"><h3>Cambia password</h3>
@@ -840,14 +848,23 @@ async function loadStaffAccountTools(){
     if(identity)identity.textContent=`Accesso: ${me.staff.email} · ${me.staff.role==='admin'?'Admin':'Operatore'}`;
     const tab=document.getElementById('staffCollaboratorsTab');
     const panel=document.getElementById('staff-collaborators');
+    const exportTab=document.getElementById('staffExportTab');
+    const exportPanel=document.getElementById('staff-export');
     if(me.staff.role!=='admin'){
       if(tab)tab.style.display='none';
       if(panel)panel.style.display='none';
+      if(exportTab)exportTab.style.display='none';
+      if(exportPanel)exportPanel.style.display='none';
       return;
     }
     if(tab)tab.style.display='';
+    if(exportTab)exportTab.style.display='';
     await loadOperators();
   }catch(_){}
+}
+
+function downloadOperationalExport(){
+  window.location.href='/api/admin/operational-export.xlsx';
 }
 
 async function loadOperators(){

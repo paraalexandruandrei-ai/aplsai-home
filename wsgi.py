@@ -6,6 +6,7 @@ from app.rbac_runtime import install_runtime_rbac
 from app.staff_accounts import init_staff_accounts
 from app.partner_access import init_partner_access
 from app.document_security import init_document_security
+from app.operational_export import init_operational_export
 
 app = app_module.create_app()
 init_operations(app, app_module)
@@ -13,6 +14,7 @@ install_runtime_rbac(app, app_module)
 init_staff_accounts(app, app_module)
 init_partner_access(app, app_module)
 init_document_security(app, app_module)
+init_operational_export(app, app_module)
 
 
 def _sanitize_value(value, key=None):

@@ -16,6 +16,7 @@ import app as app_module
 from app.operations import init_operations
 from app.rbac_runtime import install_runtime_rbac
 from app.staff_accounts import init_staff_accounts
+from app.operational_export import init_operational_export
 
 
 class OperatorAccountsCheck(unittest.TestCase):
@@ -26,6 +27,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         init_operations(cls.app, app_module)
         install_runtime_rbac(cls.app, app_module)
         init_staff_accounts(cls.app, app_module)
+        init_operational_export(cls.app, app_module)
 
         with cls.app.app_context():
             for role, email in [
@@ -240,6 +242,16 @@ class OperatorAccountsCheck(unittest.TestCase):
             u = app_module.User.query.filter_by(email="existing-operator@example.com").first()
             u.password_hash = generate_password_hash("RoleTest12345", method="scrypt")
             app_module.db.session.commit()
+
+    def test_admin_can_download_operational_excel(self):
+        admin = self.login_admin()
+        response = admin.get("/api/admin/operational-export.xlsx")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data[:2], b"PK")
+        self.assertIn("application/vnd.openxmlformats", response.content_type)
+
+        operator = self.role_client("existing-operator@example.com")
+        self.assertEqual(operator.get("/api/admin/operational-export.xlsx").status_code, 403)
 
 
 if __name__ == "__main__":
