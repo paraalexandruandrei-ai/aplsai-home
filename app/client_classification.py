@@ -3,12 +3,18 @@ from datetime import datetime, timezone
 from flask import jsonify, request, session
 
 from .rbac import has_permission
-from .schema_migrations import ensure_client_classification_columns
+from .schema_migrations import (
+    ensure_client_classification_columns,
+    purge_confirmed_initial_test_clients,
+)
 
 
 # Run before create_app() calls db.create_all() so an existing database is
 # upgraded before the model queries the new columns.
 ensure_client_classification_columns()
+_purged_test_clients = purge_confirmed_initial_test_clients()
+if _purged_test_clients is not None:
+    print(f"APLSAI initial test-data cleanup completed: {_purged_test_clients} client(s) removed")
 
 
 def init_client_classification(app, app_module):

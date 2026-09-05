@@ -1,11 +1,12 @@
 import os
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import bindparam, create_engine, inspect, text
 
 
 MIGRATION_ID = "20260902_01_user_active"
 CLIENT_CLASSIFICATION_MIGRATION_ID = "20260905_03_client_classification"
+INITIAL_TEST_PURGE_MIGRATION_ID = "20260905_04_purge_confirmed_test_clients"
 
 
 def _database_url():
@@ -105,5 +106,76 @@ def ensure_client_classification_columns():
                 },
             )
         return True
+    finally:
+        engine.dispose()
+
+
+def purge_confirmed_initial_test_clients():
+    """Permanently remove only the initial records classified as test data."""
+    engine = create_engine(_database_url(), pool_pre_ping=True)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS aplsai_schema_migration ("
+                "id VARCHAR(100) PRIMARY KEY, applied_at TIMESTAMP NOT NULL)"
+            ))
+            already = conn.execute(
+                text("SELECT 1 FROM aplsai_schema_migration WHERE id=:id"),
+                {"id": INITIAL_TEST_PURGE_MIGRATION_ID},
+            ).first()
+            if already:
+                return None
+
+            tables = set(inspect(conn).get_table_names())
+            client_ids = []
+            if "client_profile" in tables:
+                columns = {c["name"] for c in inspect(conn).get_columns("client_profile")}
+                if "is_test" in columns:
+                    client_ids = [row[0] for row in conn.execute(text(
+                        "SELECT user_id FROM client_profile WHERE is_test=TRUE"
+                    )).all()]
+
+            if client_ids:
+                def delete_ids(table, column, values=client_ids):
+                    if table not in tables:
+                        return
+                    statement = text(
+                        f'DELETE FROM "{table}" WHERE "{column}" IN :ids'
+                    ).bindparams(bindparam("ids", expanding=True))
+                    conn.execute(statement, {"ids": values})
+
+                delete_ids("partner_assignment", "client_id")
+                delete_ids("client_operation", "client_id")
+                delete_ids("deal", "client_id")
+                delete_ids("referral", "owner_id")
+                delete_ids("document", "client_id")
+                delete_ids("update", "client_id")
+
+                if "audit_event" in tables:
+                    null_actors = text(
+                        "UPDATE audit_event SET actor_user_id=NULL "
+                        "WHERE actor_user_id IN :ids"
+                    ).bindparams(bindparam("ids", expanding=True))
+                    conn.execute(null_actors, {"ids": client_ids})
+                    delete_audit = text(
+                        "DELETE FROM audit_event WHERE object_type='client' "
+                        "AND object_id IN :ids"
+                    ).bindparams(bindparam("ids", expanding=True))
+                    conn.execute(delete_audit, {"ids": [str(value) for value in client_ids]})
+
+                delete_ids("client_profile", "user_id")
+                delete_ids("user", "id")
+
+            conn.execute(
+                text(
+                    "INSERT INTO aplsai_schema_migration (id, applied_at) "
+                    "VALUES (:id, :applied_at)"
+                ),
+                {
+                    "id": INITIAL_TEST_PURGE_MIGRATION_ID,
+                    "applied_at": datetime.now(timezone.utc),
+                },
+            )
+        return len(client_ids)
     finally:
         engine.dispose()
