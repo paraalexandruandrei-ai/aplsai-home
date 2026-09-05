@@ -24,6 +24,7 @@ from app.client_classification import init_client_classification
 from app.property_profiles import init_property_profiles
 from app.scenarios import init_scenarios
 from app.feasibility import init_feasibility
+from app.cashflow import init_cashflow
 
 
 class OperatorAccountsCheck(unittest.TestCase):
@@ -39,6 +40,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         init_property_profiles(cls.app, app_module)
         init_scenarios(cls.app, app_module)
         init_feasibility(cls.app, app_module)
+        init_cashflow(cls.app, app_module)
 
         with cls.app.app_context():
             for role, email in [
@@ -301,6 +303,11 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertIn("Fattibilità operazioni", workbook.sheetnames)
         self.assertIn("Stress test", workbook.sheetnames)
         self.assertIn("Storico fattibilità", workbook.sheetnames)
+        self.assertIn("Piani di cassa", workbook.sheetnames)
+        self.assertIn("Movimenti di cassa", workbook.sheetnames)
+        self.assertIn("Cassa mensile", workbook.sheetnames)
+        self.assertIn("Stress di cassa", workbook.sheetnames)
+        self.assertIn("Storico cassa", workbook.sheetnames)
         headers = [cell.value for cell in next(workbook["Immobili"].iter_rows(max_row=1))]
         self.assertIn("Trasformabilità", headers)
         self.assertIn("Costo lavori minimo", headers)
@@ -470,6 +477,44 @@ class OperatorAccountsCheck(unittest.TestCase):
         analysis_detail = admin.get(f"/api/staff/feasibility/{analysis_id}")
         self.assertEqual([row["version"] for row in analysis_detail.get_json()["analysis"]["revisions"][:2]], [2, 1])
 
+        cash_created = admin.post("/api/staff/cashflow", json={
+            "analysis_id": analysis_id, "name": "Cassa operazione test",
+            "start_month": "2026-09", "opening_cash": 100000,
+            "additional_credit_limit": 110000, "status": "Da verificare",
+            "notes": "Calendario di collaudo.",
+        })
+        self.assertEqual(cash_created.status_code, 201, cash_created.get_json())
+        cash_plan = cash_created.get_json()["plan"]
+        cash_plan_id = cash_plan["id"]
+        self.assertEqual(cash_plan["results"]["decision"], "PIANO DA COMPLETARE")
+        self.assertEqual(len([m for m in cash_plan["movements"] if m["system_generated"]]), 3)
+
+        movement_added = admin.post(f"/api/staff/cashflow/{cash_plan_id}/movements", json={
+            "month_index": 2, "movement_type": "Uscita", "category": "Lavori",
+            "description": "SAL complessivi pianificati", "amount_min": 50000,
+            "amount_max": 57300, "source": "Scenario analitico", "reliability": "Documentato",
+        })
+        self.assertEqual(movement_added.status_code, 201, movement_added.get_json())
+        cash_plan = movement_added.get_json()["plan"]
+        self.assertEqual(cash_plan["results"]["reconciliation"]["status"], "riconciliato")
+        self.assertEqual(cash_plan["results"]["decision"], "COPERTURA ADEGUATA")
+        cash_double = next(row for row in cash_plan["results"]["stress_cases"] if row["key"] == "doppio_stress")
+        self.assertEqual(cash_double["minimum_balance"], -108760)
+        self.assertEqual(cash_double["peak_month"], "Novembre 2026")
+        self.assertEqual(cash_double["coverage_status"], "coperto")
+
+        automatic_movement = next(m for m in cash_plan["movements"] if m["system_generated"])
+        protected = admin.delete(f"/api/staff/cashflow/{cash_plan_id}/movements/{automatic_movement['id']}", json={})
+        self.assertEqual(protected.status_code, 409, protected.get_json())
+
+        cash_updated = admin.patch(f"/api/staff/cashflow/{cash_plan_id}", json={
+            "additional_credit_limit": 120000, "change_note": "Aumentata linea disponibile",
+        })
+        self.assertEqual(cash_updated.status_code, 200, cash_updated.get_json())
+        self.assertEqual(cash_updated.get_json()["plan"]["version"], 3)
+        cash_detail = admin.get(f"/api/staff/cashflow/{cash_plan_id}")
+        self.assertEqual([row["version"] for row in cash_detail.get_json()["plan"]["revisions"][:3]], [3, 2, 1])
+
         detail = admin.get(f"/api/staff/properties/{property_id}")
         self.assertEqual(detail.status_code, 200, detail.get_json())
         revisions = detail.get_json()["revisions"]
@@ -490,6 +535,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertEqual(deleted.status_code, 200, deleted.get_json())
         self.assertEqual(admin.get(f"/api/staff/scenarios/{scenario_id}").status_code, 404)
         self.assertEqual(admin.get(f"/api/staff/feasibility/{analysis_id}").status_code, 404)
+        self.assertEqual(admin.get(f"/api/staff/cashflow/{cash_plan_id}").status_code, 404)
 
     def test_admin_can_separate_test_clients_and_archive_without_deleting(self):
         profile = {

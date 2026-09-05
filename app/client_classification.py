@@ -98,6 +98,10 @@ def init_client_classification(app, app_module):
         feasibility_ext = app.extensions.get("aplsai_feasibility") or {}
         Analysis = feasibility_ext.get("FeasibilityAnalysis")
         AnalysisRevision = feasibility_ext.get("FeasibilityRevision")
+        cashflow_ext = app.extensions.get("aplsai_cashflow") or {}
+        CashPlan = cashflow_ext.get("CashFlowPlan")
+        CashMovement = cashflow_ext.get("CashFlowMovement")
+        CashRevision = cashflow_ext.get("CashFlowRevision")
 
         if Assignment is not None:
             Assignment.query.filter_by(client_id=client_id).delete(synchronize_session=False)
@@ -108,6 +112,14 @@ def init_client_classification(app, app_module):
             if scenario_ids:
                 if Analysis is not None:
                     analysis_ids = [row.id for row in Analysis.query.filter(Analysis.scenario_id.in_(scenario_ids)).all()]
+                    if analysis_ids and CashPlan is not None:
+                        plan_ids = [row.id for row in CashPlan.query.filter(CashPlan.analysis_id.in_(analysis_ids)).all()]
+                        if plan_ids and CashMovement is not None:
+                            CashMovement.query.filter(CashMovement.plan_id.in_(plan_ids)).delete(synchronize_session=False)
+                        if plan_ids and CashRevision is not None:
+                            CashRevision.query.filter(CashRevision.plan_id.in_(plan_ids)).delete(synchronize_session=False)
+                        if plan_ids:
+                            CashPlan.query.filter(CashPlan.id.in_(plan_ids)).delete(synchronize_session=False)
                     if analysis_ids and AnalysisRevision is not None:
                         AnalysisRevision.query.filter(AnalysisRevision.analysis_id.in_(analysis_ids)).delete(synchronize_session=False)
                     if analysis_ids:

@@ -221,6 +221,58 @@ def init_operational_export(app, app_module):
             row.change_note, _iso(row.created_at), row.snapshot_json,
         ) for row in analysis_revisions])
 
+        cash_ext = app.extensions.get("aplsai_cashflow") or {}
+        CashPlan = cash_ext.get("CashFlowPlan")
+        CashMovement = cash_ext.get("CashFlowMovement")
+        CashRevision = cash_ext.get("CashFlowRevision")
+        cash_serializer = cash_ext.get("plan_dict")
+        cash_plans = CashPlan.query.order_by(CashPlan.id.asc()).all() if CashPlan else []
+        _sheet(wb, "Piani di cassa", [
+            "ID", "ID analisi", "Analisi", "Immobile", "Nome piano", "Mese iniziale",
+            "Cassa iniziale", "Linea aggiuntiva", "Stato", "Decisione", "Versione",
+            "Costi scenario", "Costi pianificati", "Da pianificare", "Sovrapianificato",
+            "Archiviato il", "Aggiornato il", "Note",
+        ], [(
+            row.id, row.analysis_id, data.get("analysis_name"), data.get("property_ref"), row.name,
+            row.start_month, row.opening_cash, row.additional_credit_limit, row.status,
+            data["results"]["decision"], row.version,
+            data["results"]["reconciliation"]["scenario_cost_max"],
+            data["results"]["reconciliation"]["planned_cost_max"],
+            data["results"]["reconciliation"]["remaining_to_schedule"],
+            data["results"]["reconciliation"]["over_scheduled"],
+            _iso(row.archived_at), _iso(row.updated_at), row.notes,
+        ) for row in cash_plans for data in [cash_serializer(row)]])
+        cash_movements = CashMovement.query.order_by(CashMovement.plan_id.asc(), CashMovement.month_index.asc()).all() if CashMovement else []
+        _sheet(wb, "Movimenti di cassa", [
+            "ID", "ID piano", "Mese progressivo", "Tipo", "Categoria", "Descrizione",
+            "Importo minimo", "Importo massimo", "Fonte", "Affidabilità", "Automatico",
+        ], [(
+            row.id, row.plan_id, row.month_index, row.movement_type, row.category, row.description,
+            row.amount_min, row.amount_max, row.source, row.reliability, bool(row.system_generated),
+        ) for row in cash_movements])
+        _sheet(wb, "Cassa mensile", [
+            "ID piano", "Mese progressivo", "Mese", "Entrate min", "Entrate max",
+            "Uscite min", "Uscite max", "Saldo prudente", "Saldo massimo",
+        ], [(
+            row.id, month["month_index"], month["month"], month["inflow_min"], month["inflow_max"],
+            month["outflow_min"], month["outflow_max"], month["balance_min"], month["balance_max"],
+        ) for row in cash_plans for data in [cash_serializer(row)] for month in data["results"]["months"]])
+        _sheet(wb, "Stress di cassa", [
+            "ID piano", "Scenario", "Saldo minimo", "Mese picco", "Fabbisogno aggiuntivo",
+            "Linea disponibile", "Copertura", "Saldo finale",
+        ], [(
+            row.id, case["label"], case["minimum_balance"], case["peak_month"],
+            case["additional_funding_need"], case["credit_limit"], case["coverage_status"],
+            case["closing_balance"],
+        ) for row in cash_plans for data in [cash_serializer(row)] for case in data["results"]["stress_cases"]])
+        cash_revisions = CashRevision.query.order_by(CashRevision.plan_id.asc(), CashRevision.version.asc()).all() if CashRevision else []
+        _sheet(wb, "Storico cassa", [
+            "ID revisione", "ID piano", "Versione", "ID autore", "Motivo", "Data", "Fotografia JSON",
+        ], [(
+            row.id, row.plan_id, row.version, row.changed_by_user_id,
+            row.change_note, _iso(row.created_at), row.snapshot_json,
+        ) for row in cash_revisions])
+
         operations_ext = app.extensions.get("aplsai_operations") or {}
         Operation = operations_ext.get("ClientOperation")
         operations = Operation.query.order_by(Operation.client_id.asc()).all() if Operation else []
