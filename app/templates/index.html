@@ -120,7 +120,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
 .full{width:100%}.hint{font-size:11px;color:var(--muted)}
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
 .stat-box{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px}.stat-box span{display:block;color:var(--muted);font-size:11px}.stat-box strong{font-size:20px}
-.staff-tabs{display:flex;gap:7px;overflow:auto;margin:12px 0}.staff-tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 12px;font-weight:800;white-space:nowrap}.staff-tab.active{background:var(--moro);color:#fff}
+.staff-quick{display:none}.staff-tabs{display:flex;gap:7px;overflow:auto;margin:12px 0}.staff-tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 12px;font-weight:800;white-space:nowrap}.staff-tab.active{background:var(--moro);color:#fff}
 .list-row{border:1px solid var(--line);border-radius:8px;padding:10px;margin:7px 0;background:#fff}.score{float:right;font-weight:900;font-size:19px}
 .row-actions{display:flex;gap:8px;flex-wrap:wrap}
 .mobile-actions{display:none;margin-left:auto;gap:6px}
@@ -133,6 +133,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
   .stats-grid{grid-template-columns:1fr 1fr}
   .app-area .wrap{padding-bottom:80px}
   .area-card{padding:14px}
+  .staff-quick{display:block;width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;background:#fff;margin:12px 0;font-weight:800}
   .staff-tabs{display:grid;grid-template-columns:1fr 1fr;overflow:visible;padding-bottom:3px}
   .staff-tab{white-space:normal;min-height:44px;padding:9px 7px}
 }
@@ -279,9 +280,9 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         <label>Password</label><input id="staffPassword" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" placeholder="Password">
         <label class="hint"><input type="checkbox" onchange="document.getElementById('staffPassword').type=this.checked?'text':'password'"> Mostra password</label>
         <button class="primary full" onclick="staffLogin()">Entra</button>
-        <p class="hint">Demo locale: usa qualsiasi email e password non vuote.</p>
+        <p class="hint">Usa esclusivamente le credenziali Admin o collaboratore autorizzate.</p>
       </article>
-      <article class="area-card"><h3>Ruoli previsti</h3><p>Super Admin, Admin e Consulente con permessi separati nella versione server.</p></article>
+      <article class="area-card"><h3>Accessi separati</h3><p>L’Admin controlla configurazioni e approvazioni. Ogni collaboratore vede e aggiorna soltanto il lavoro autorizzato.</p></article>
     </div>
     <div id="staffDashboard" style="display:none">
       <div class="stats-grid">
@@ -290,6 +291,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         <div class="stat-box"><span>Immobili</span><strong id="sProperties">0</strong></div>
         <div class="stat-box"><span>Trattative</span><strong id="sDeals">0</strong></div>
       </div>
+      <select class="staff-quick" id="staffQuickNav" aria-label="Vai alla sezione staff" onchange="staffQuickNav(this.value)"><option value="">Vai alla sezione…</option><option value="today">Oggi</option><option value="tasks">Incarichi</option><option value="clients">Clienti</option><option value="opportunities">Opportunità</option><option value="outreach">Contatti immobili</option><option value="properties">Immobili</option><option value="scenarios">Scenari</option><option value="feasibility">Fattibilità</option><option value="cashflow">Cassa</option><option value="portfolio">Portafoglio</option><option value="capacity">Capacità</option><option value="matching">Matching</option><option value="deals">Trattative</option><option value="referrals">Referral</option><option value="documents">Documenti</option><option value="protocol">Regole staff</option><option value="collaborators">Collaboratori</option><option value="export">Esportazione</option><option value="security">Sicurezza</option></select>
       <div class="staff-tabs">
         <button class="staff-tab active" onclick="staffTab('today',this)">Oggi</button>
         <button class="staff-tab" id="staffTasksTab" onclick="staffTab('tasks',this)">Incarichi</button>
@@ -822,7 +824,8 @@ function staffLogin(){
 }
 function renderStaffArea(){if(loadStore("aplsai_staff_session",null)){document.getElementById("staffLoginBox").style.display="none";document.getElementById("staffDashboard").style.display="block";renderStaff()}else{document.getElementById("staffLoginBox").style.display="grid";document.getElementById("staffDashboard").style.display="none"}}
 function staffLogout(){localStorage.removeItem("aplsai_staff_session");renderStaffArea()}
-function staffTab(id,b){document.querySelectorAll(".staff-tab").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".staff-panel").forEach(x=>x.style.display="none");b.classList.add("active");document.getElementById("staff-"+id).style.display="block"}
+function staffTab(id,b){document.querySelectorAll(".staff-tab").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".staff-panel").forEach(x=>x.style.display="none");if(b)b.classList.add("active");const panel=document.getElementById("staff-"+id);if(panel)panel.style.display="block";const quick=document.getElementById('staffQuickNav');if(quick)quick.value=id}
+function staffQuickNav(id){if(!id)return;const button=[...document.querySelectorAll('.staff-tab')].find(x=>(x.getAttribute('onclick')||'').includes(`'${id}'`));staffTab(id,button);const panel=document.getElementById('staff-'+id);if(panel)panel.scrollIntoView({behavior:'smooth',block:'start'});}
 function clientPriority(p){let age=Math.floor((Date.now()-new Date(p.createdAt))/86400000);let v=70+(p.preferredStrategy?8:0)+Math.min(age,120)/12;return Math.min(100,Math.round(v))}
 function renderStaff(){
  const clients=loadStore("aplsai_profiles",[]),props=loadStore("aplsai_properties",[]),deals=loadStore("aplsai_deals",[]);
@@ -1125,6 +1128,7 @@ async function loadStaffAccountTools(){
       if(exportTab)exportTab.style.display='none';
       if(exportPanel)exportPanel.style.display='none';
       await loadWorkTasks();
+      await loadStaffProtocol();
       return;
     }
     if(tab)tab.style.display='';
@@ -1132,6 +1136,7 @@ async function loadStaffAccountTools(){
     if(typeof renderClientRegistry==='function')renderClientRegistry();
     await loadOperators();
     await loadWorkTasks();
+    await loadStaffProtocol();
   }catch(_){}
 }
 
