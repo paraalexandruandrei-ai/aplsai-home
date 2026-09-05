@@ -190,6 +190,57 @@ class OperatorAccountsCheck(unittest.TestCase):
             for e in audit.get_json().get("events", [])
         ))
 
+    def test_staff_identity_and_password_change(self):
+        admin = self.login_admin()
+        me = admin.get("/api/staff/me")
+        self.assertEqual(me.status_code, 200, me.get_json())
+        self.assertEqual(me.get_json()["staff"]["role"], "admin")
+
+        wrong = admin.post("/api/staff/password", json={
+            "current_password": "WrongPassword1",
+            "new_password": "ChangedAdmin12345",
+        })
+        self.assertEqual(wrong.status_code, 401)
+
+        changed = admin.post("/api/staff/password", json={
+            "current_password": "AdminAccounts12345",
+            "new_password": "ChangedAdmin12345",
+        })
+        self.assertEqual(changed.status_code, 200, changed.get_json())
+
+        old_login = self.app.test_client().post("/api/staff/login", json={
+            "email": "admin-accounts@example.com",
+            "password": "AdminAccounts12345",
+        })
+        self.assertEqual(old_login.status_code, 401)
+        new_login = self.app.test_client().post("/api/staff/login", json={
+            "email": "admin-accounts@example.com",
+            "password": "ChangedAdmin12345",
+        })
+        self.assertEqual(new_login.status_code, 200, new_login.get_json())
+
+        with self.app.app_context():
+            u = app_module.User.query.filter_by(email="admin-accounts@example.com").first()
+            u.password_hash = generate_password_hash("AdminAccounts12345", method="scrypt")
+            app_module.db.session.commit()
+
+    def test_operator_can_change_own_password_but_not_manage_operators(self):
+        operator = self.role_client("existing-operator@example.com")
+        me = operator.get("/api/staff/me")
+        self.assertEqual(me.status_code, 200, me.get_json())
+        self.assertEqual(me.get_json()["staff"]["role"], "operator")
+        self.assertEqual(operator.get("/api/admin/operators").status_code, 403)
+
+        changed = operator.post("/api/staff/password", json={
+            "current_password": "RoleTest12345",
+            "new_password": "OperatorChanged12345",
+        })
+        self.assertEqual(changed.status_code, 200, changed.get_json())
+        with self.app.app_context():
+            u = app_module.User.query.filter_by(email="existing-operator@example.com").first()
+            u.password_hash = generate_password_hash("RoleTest12345", method="scrypt")
+            app_module.db.session.commit()
+
 
 if __name__ == "__main__":
     unittest.main()

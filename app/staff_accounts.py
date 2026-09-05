@@ -1,5 +1,5 @@
 from flask import jsonify, request, session
-from werkzeug.security import generate_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from . import User, db
 from .rbac import has_permission
@@ -52,6 +52,50 @@ def init_staff_accounts(app, app_module):
         fn = ext.get("audit")
         if fn:
             fn(actor, action, "staff_account", object_id, detail)
+
+    def authenticated_staff():
+        uid = session.get("uid")
+        if not uid:
+            return None, (jsonify(error="Non autenticato."), 401)
+        u = dbx.session.get(app_module.User, uid)
+        if not u or u.role not in {"staff", "operator"}:
+            session.clear()
+            return None, (jsonify(error="Sessione staff non valida."), 401)
+        if getattr(u, "active", True) is False:
+            session.clear()
+            return None, (jsonify(error="Account disattivato."), 401)
+        return u, None
+
+    @app.get("/api/staff/me")
+    def staff_me():
+        u, denied = authenticated_staff()
+        if denied:
+            return denied
+        return jsonify(staff={
+            "id": u.id,
+            "name": u.name,
+            "email": u.email,
+            "role": "admin" if u.role == "staff" else "operator",
+        })
+
+    @app.post("/api/staff/password")
+    def change_staff_password():
+        u, denied = authenticated_staff()
+        if denied:
+            return denied
+        d = request.get_json(silent=True) or {}
+        current_password = d.get("current_password") or ""
+        new_password = d.get("new_password") or ""
+        if not check_password_hash(u.password_hash, current_password):
+            return jsonify(error="Password attuale errata."), 401
+        if not app_module.strong_password(new_password):
+            return jsonify(error="La nuova password deve avere almeno 10 caratteri, con lettere e numeri."), 400
+        if check_password_hash(u.password_hash, new_password):
+            return jsonify(error="La nuova password deve essere diversa da quella attuale."), 400
+        u.password_hash = generate_password_hash(new_password, method="scrypt")
+        audit(u, "staff_password_change", u.id)
+        dbx.session.commit()
+        return jsonify(ok=True)
 
     @app.get("/api/admin/operators")
     def list_operators():

@@ -293,7 +293,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         <button class="staff-tab" onclick="staffTab('clients',this)">Clienti</button>
         <button class="staff-tab" onclick="staffTab('properties',this)">Immobili</button>
         <button class="staff-tab" onclick="staffTab('matching',this)">Matching</button>
-        <button class="staff-tab" onclick="staffTab('deals',this)">Trattative</button><button class="staff-tab" onclick="staffTab('referrals',this)">Referral</button><button class="staff-tab" onclick="staffTab('documents',this)">Documenti</button>
+        <button class="staff-tab" onclick="staffTab('deals',this)">Trattative</button><button class="staff-tab" onclick="staffTab('referrals',this)">Referral</button><button class="staff-tab" onclick="staffTab('documents',this)">Documenti</button><button class="staff-tab" id="staffCollaboratorsTab" onclick="staffTab('collaborators',this)">Collaboratori</button><button class="staff-tab" onclick="staffTab('security',this)">Sicurezza</button>
       </div>
       <div id="staff-today" class="staff-panel"><div id="todayGrid" class="area-grid"></div></div>
       <div id="staff-clients" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Clienti</h3><div id="staffClientList"></div></article><article class="area-card"><h3>Scheda cliente</h3><div id="staffClientDetail">Seleziona un cliente.</div></article></div></div>
@@ -314,6 +314,26 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
       <div id="staff-deals" class="staff-panel" style="display:none"><div id="dealList"></div></div>
       <div id="staff-referrals" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Referral</h3><div id="staffReferralList"></div></article><article class="area-card"><h3>Regola V1</h3><p>Credito, sconto o Premium temporaneo. Nessun premio economico collegato a compravendite nella prima versione.</p></article></div></div>
       <div id="staff-documents" class="staff-panel" style="display:none"><div class="area-grid"><article class="area-card"><h3>Condividi documento</h3><select id="docClient"></select><input id="docTitle" placeholder="Titolo documento"><input id="docUrl" placeholder="Link documento o file"><button class="primary full" onclick="shareDocument()">Condividi</button></article><article class="area-card"><h3>Documenti condivisi</h3><div id="staffDocList"></div></article></div></div>
+      <div id="staff-collaborators" class="staff-panel" style="display:none"><div class="area-grid">
+        <article class="area-card"><h3>Aggiungi collaboratore</h3>
+          <label>Nome</label><input id="operatorName" autocomplete="name" placeholder="Nome e cognome">
+          <label>Email</label><input id="operatorEmail" type="email" autocomplete="email" placeholder="email@esempio.it">
+          <label>Password temporanea</label><input id="operatorPassword" type="password" autocomplete="new-password" minlength="10" placeholder="Almeno 10 caratteri, lettere e numeri">
+          <button class="primary full" id="operatorCreateBtn" onclick="createOperator()">Aggiungi collaboratore</button>
+          <p id="operatorCreateMsg" class="hint" aria-live="polite"></p>
+        </article>
+        <article class="area-card"><h3>Collaboratori</h3><p class="hint">La disattivazione blocca l’accesso ma conserva lo storico.</p><div id="operatorList">Caricamento…</div></article>
+      </div></div>
+      <div id="staff-security" class="staff-panel" style="display:none"><div class="area-grid">
+        <article class="area-card"><h3>Cambia password</h3>
+          <p class="hint" id="staffIdentity"></p>
+          <label>Password attuale</label><input id="currentStaffPassword" type="password" autocomplete="current-password">
+          <label>Nuova password</label><input id="newStaffPassword" type="password" autocomplete="new-password" minlength="10" placeholder="Almeno 10 caratteri, lettere e numeri">
+          <label>Conferma nuova password</label><input id="confirmStaffPassword" type="password" autocomplete="new-password">
+          <button class="primary full" id="staffPasswordBtn" onclick="changeStaffPassword()">Aggiorna password</button>
+          <p id="staffPasswordMsg" class="hint" aria-live="polite"></p>
+        </article>
+      </div></div>
       <button class="secondary" onclick="staffLogout()">Esci</button>
     </div>
   </div>
@@ -788,6 +808,7 @@ staffLogin=async function(){
     document.getElementById("staffLoginBox").style.display="none";
     document.getElementById("staffDashboard").style.display="block";
     await renderStaffServer();
+    await loadStaffAccountTools();
   }catch(e){ alert(e.message); }
 };
 
@@ -796,11 +817,82 @@ renderStaffArea=async function(){
     await renderStaffServer();
     document.getElementById("staffLoginBox").style.display="none";
     document.getElementById("staffDashboard").style.display="block";
+    await loadStaffAccountTools();
   }catch{
     document.getElementById("staffLoginBox").style.display="grid";
     document.getElementById("staffDashboard").style.display="none";
   }
 };
+
+function escapeHtml(value){
+  return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+function operatorRowHtml(op){
+  const active=!!op.active;
+  return `<div class="list-row"><b>${escapeHtml(op.name)}</b><br><small>${escapeHtml(op.email)}</small><br><span class="score" style="margin-top:8px;display:inline-block">${active?'Attivo':'Disattivato'}</span><button class="secondary" style="margin-top:10px;width:100%;min-height:44px" onclick="setOperatorActive(${Number(op.id)},${!active})">${active?'Disattiva accesso':'Riattiva accesso'}</button></div>`;
+}
+
+async function loadStaffAccountTools(){
+  try{
+    const me=await api('/api/staff/me');
+    const identity=document.getElementById('staffIdentity');
+    if(identity)identity.textContent=`Accesso: ${me.staff.email} · ${me.staff.role==='admin'?'Admin':'Operatore'}`;
+    const tab=document.getElementById('staffCollaboratorsTab');
+    const panel=document.getElementById('staff-collaborators');
+    if(me.staff.role!=='admin'){
+      if(tab)tab.style.display='none';
+      if(panel)panel.style.display='none';
+      return;
+    }
+    if(tab)tab.style.display='';
+    await loadOperators();
+  }catch(_){}
+}
+
+async function loadOperators(){
+  const box=document.getElementById('operatorList');
+  if(!box)return;
+  try{
+    const d=await api('/api/admin/operators');
+    box.innerHTML=(d.operators||[]).map(operatorRowHtml).join('')||'<p>Nessun collaboratore.</p>';
+  }catch(e){box.textContent=e.message||'Impossibile caricare i collaboratori.';}
+}
+
+async function createOperator(){
+  const msg=document.getElementById('operatorCreateMsg');
+  const payload={name:(document.getElementById('operatorName')?.value||'').trim(),email:(document.getElementById('operatorEmail')?.value||'').trim(),password:document.getElementById('operatorPassword')?.value||''};
+  if(!payload.name||!payload.email||payload.password.length<10){if(msg)msg.textContent='Completa nome, email e password temporanea di almeno 10 caratteri.';return;}
+  try{
+    if(msg)msg.textContent='Creazione…';
+    await api('/api/admin/operators',{method:'POST',body:JSON.stringify(payload)});
+    ['operatorName','operatorEmail','operatorPassword'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    if(msg)msg.textContent='Collaboratore aggiunto. Comunica le credenziali in modo sicuro.';
+    await loadOperators();
+  }catch(e){if(msg)msg.textContent=e.message||'Errore durante la creazione.';}
+}
+
+async function setOperatorActive(id,active){
+  try{
+    await api('/api/admin/operators/'+encodeURIComponent(id)+'/active',{method:'PATCH',body:JSON.stringify({active})});
+    await loadOperators();
+  }catch(e){alert(e.message||'Impossibile aggiornare il collaboratore.');}
+}
+
+async function changeStaffPassword(){
+  const msg=document.getElementById('staffPasswordMsg');
+  const current=document.getElementById('currentStaffPassword')?.value||'';
+  const next=document.getElementById('newStaffPassword')?.value||'';
+  const confirm=document.getElementById('confirmStaffPassword')?.value||'';
+  if(next!==confirm){if(msg)msg.textContent='Le nuove password non coincidono.';return;}
+  if(next.length<10){if(msg)msg.textContent='La nuova password deve avere almeno 10 caratteri.';return;}
+  try{
+    if(msg)msg.textContent='Aggiornamento…';
+    await api('/api/staff/password',{method:'POST',body:JSON.stringify({current_password:current,new_password:next})});
+    ['currentStaffPassword','newStaffPassword','confirmStaffPassword'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    if(msg)msg.textContent='Password aggiornata correttamente.';
+  }catch(e){if(msg)msg.textContent=e.message||'Impossibile aggiornare la password.';}
+}
 
 staffLogout=async function(){
   await api("/api/logout",{method:"POST",body:"{}"});

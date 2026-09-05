@@ -81,6 +81,9 @@ def install_runtime_rbac(app, app_module):
         if not path.startswith("/api/staff/"):
             return None
 
+        if path in {"/api/staff/me", "/api/staff/password"}:
+            return None
+
         if path == "/api/staff/operations" or path == "/api/staff/audit" or (
             path.startswith("/api/staff/client/") and path.endswith("/operation")
         ):

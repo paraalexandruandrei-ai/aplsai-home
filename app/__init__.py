@@ -492,9 +492,9 @@ def seed_admin():
     if existing:
         if existing.role != "staff":
             raise RuntimeError("ADMIN_EMAIL già usata da un utente non staff")
-        if not check_password_hash(existing.password_hash, password):
-            existing.password_hash = generate_password_hash(password, method="scrypt")
-            db.session.commit()
+        # ADMIN_PASSWORD is only a first-start bootstrap secret. Once the
+        # account exists, password changes made in the Admin area must survive
+        # restarts and deployments.
         return
 
     db.session.add(User(
