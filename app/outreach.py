@@ -432,4 +432,5 @@ def init_outreach(app, app_module):
     app.extensions["aplsai_outreach"] = {
         "OpportunityInquiry": OpportunityInquiry, "InquiryReply": InquiryReply,
         "missing_information": missing_information, "inquiry_dict": inquiry_dict,
+        "extract_reply": extract_reply,
     }
