@@ -163,7 +163,7 @@ def init_property_profiles(app, app_module):
             sqm = float(data.get("sqm", prop.sqm))
             beds = int(data.get("beds", prop.beds) or 0)
             baths = int(data.get("baths", prop.baths) or 0)
-            if not ref or not zone or price <= 0 or sqm <= 0 or not (0 <= beds <= 30) or not (0 <= baths <= 30):
+            if not ref or not zone or price < 0 or sqm < 0 or not (0 <= beds <= 30) or not (0 <= baths <= 30):
                 raise ValueError("Dati immobile incompleti o non validi.")
             prop.ref, prop.zone, prop.state, prop.source = ref, zone, state, source
             prop.price, prop.sqm, prop.beds, prop.baths = price, sqm, beds, baths

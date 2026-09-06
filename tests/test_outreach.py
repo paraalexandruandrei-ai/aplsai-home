@@ -73,6 +73,18 @@ class OutreachCheck(unittest.TestCase):
         self.assertEqual(response.status_code, 201, response.get_json())
         return response.get_json()["opportunity"]
 
+    def test_incomplete_opportunity_can_be_saved(self):
+        operator = self.client_for("outreach-operator@example.com")
+        response = operator.post("/api/staff/opportunities", json={
+            "source_type": "Portale",
+        })
+        self.assertEqual(response.status_code, 201, response.get_json())
+        opportunity = response.get_json()["opportunity"]
+        self.assertEqual(opportunity["title"], "Opportunità da completare")
+        self.assertEqual(opportunity["zone"], "Da verificare")
+        self.assertIsNone(opportunity["price"])
+        self.assertIsNone(opportunity["sqm"])
+
     def test_generates_questions_only_for_missing_information(self):
         operator = self.client_for("outreach-operator@example.com")
         opportunity = self.create_opportunity(operator)

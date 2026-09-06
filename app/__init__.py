@@ -258,18 +258,18 @@ def create_app():
         if not u:
             return jsonify(error="Non autorizzato."), 401
         d = request.get_json(silent=True) or {}
-        ref = clean_text(d.get("ref"), 120)
-        zone = clean_text(d.get("zone"), 200)
+        ref = clean_text(d.get("ref"), 120) or f"IMM-{int(utcnow().timestamp())}"
+        zone = clean_text(d.get("zone"), 200) or "Da verificare"
         state = clean_text(d.get("state"), 100)
         source = clean_text(d.get("source") or "Staff", 100)
         try:
-            price = float(d.get("price"))
-            sqm = float(d.get("sqm"))
+            price = float(d.get("price") or 0)
+            sqm = float(d.get("sqm") or 0)
             beds = int(d.get("beds") or 0)
             baths = int(d.get("baths") or 0)
         except (TypeError, ValueError):
             return jsonify(error="Dati immobile non validi."), 400
-        if not ref or not zone or price <= 0 or sqm <= 0 or not (0 <= beds <= 30) or not (0 <= baths <= 30):
+        if price < 0 or sqm < 0 or not (0 <= beds <= 30) or not (0 <= baths <= 30):
             return jsonify(error="Dati immobile incompleti o non validi."), 400
         p = Property(ref=ref, zone=zone, price=price, sqm=sqm, beds=beds, baths=baths, state=state, source=source)
         property_profiles = app.extensions.get("aplsai_property_profiles") or {}

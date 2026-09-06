@@ -235,8 +235,14 @@ def init_opportunities(app, app_module):
                 opportunity.last_checked_on = date.fromisoformat(value) if value else None
             except (TypeError, ValueError):
                 raise ValueError("Data ultimo controllo non valida.")
-        if not opportunity.title or not opportunity.zone or opportunity.source_type not in SOURCE_TYPES:
-            raise ValueError("Titolo, zona o tipo fonte non validi.")
+        # La prima raccolta può partire da un annuncio incompleto. Manteniamo la
+        # scheda registrabile e rendiamo espliciti i dati ancora da verificare.
+        if not opportunity.title:
+            opportunity.title = "Opportunità da completare"
+        if not opportunity.zone:
+            opportunity.zone = "Da verificare"
+        if opportunity.source_type not in SOURCE_TYPES:
+            raise ValueError("Tipo fonte non valido.")
         if opportunity.status not in STATUSES or opportunity.documents_status not in DOCUMENT_STATES or opportunity.planimetry_status not in PLAN_STATES:
             raise ValueError("Stato opportunità o documenti non valido.")
         if opportunity.analysis_status not in ANALYSIS_STATES or opportunity.decision not in DECISIONS or opportunity.data_reliability not in RELIABILITY_LEVELS:
@@ -349,27 +355,14 @@ def init_opportunities(app, app_module):
             return jsonify(error="Opportunità non trovata."), 404
         if opportunity.linked_property_id:
             return jsonify(error="Opportunità già inserita nella banca dati immobili.", property_id=opportunity.linked_property_id), 409
-        missing = []
-        if not opportunity.price:
-            missing.append("prezzo")
-        if not opportunity.sqm:
-            missing.append("metratura")
-        if opportunity.analysis_status != "Preliminare completata":
-            missing.append("analisi preliminare")
-        if opportunity.documents_status not in {"Parziali", "Completi"}:
-            missing.append("documenti disponibili")
-        if opportunity.decision != "Procedere" or not opportunity.decision_note:
-            missing.append("decisione motivata")
-        if missing:
-            return jsonify(error="Prima di procedere completare: " + ", ".join(missing) + ".", missing=missing), 409
         source = f"{opportunity.source_type}: {opportunity.source_name or 'fonte registrata'}"[:100]
         prop = app_module.Property(
-            ref=f"OPP-{opportunity.id:05d}", zone=opportunity.zone, price=opportunity.price,
-            sqm=opportunity.sqm, beds=0, baths=0, state=opportunity.state, source=source,
+            ref=f"OPP-{opportunity.id:05d}", zone=opportunity.zone or "Da verificare", price=opportunity.price or 0,
+            sqm=opportunity.sqm or 0, beds=0, baths=0, state=opportunity.state, source=source,
             property_type=opportunity.property_type, address=opportunity.address,
             availability=opportunity.availability, known_constraints=opportunity.risks,
             transformation_status="Da verificare", data_reliability=opportunity.data_reliability,
-            technical_verification="Verifica in corso",
+            technical_verification="Da verificare",
             notes=("Origine: opportunità #" + str(opportunity.id) + ". " + opportunity.notes)[:5000],
         )
         db.session.add(prop)
