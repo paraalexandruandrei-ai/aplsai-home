@@ -541,6 +541,58 @@ def init_operational_export(app, app_module):
             for row in delivery_events
         ])
 
+        partner_ext = app.extensions.get("aplsai_partners") or {}
+        Partner = partner_ext.get("Partner")
+        PartnerAssignment = partner_ext.get("PartnerAssignment")
+        PartnerEvent = partner_ext.get("PartnerEvent")
+        partner_serializer = partner_ext.get("partner_dict")
+        assignment_serializer = partner_ext.get("assignment_dict")
+        partners = Partner.query.order_by(Partner.id.asc()).all() if Partner else []
+        _sheet(wb, "Rete partner", [
+            "ID", "Nome", "Tipo", "Riferimento fiscale", "Referente", "Email", "Telefono",
+            "Zone", "Specializzazioni", "Capacità", "Disponibilità", "Stato documenti", "Rif. documenti",
+            "Stato NDA", "Rif. NDA", "Contratto", "Capitolato", "Offerta accettata", "Piano approvato",
+            "Dichiarazione conflitti", "Note riservatezza", "Stato idoneità", "Motivazione decisione",
+            "Evidenza decisione", "Deciso il", "Requisiti mancanti", "Incarichi", "Prestazioni misurate",
+            "Totale preventivi", "Costo fornitore", "Scostamento", "Ritardo medio giorni",
+            "Difetti critici", "Non conformità", "Qualità conforme", "Documenti conformi", "Attivo", "Versione",
+        ], [(
+            row.id, row.name, row.partner_type, row.tax_reference, row.contact_name, row.email, row.phone,
+            row.zones, row.specialties, row.capacity_note, row.availability, row.documents_status, row.documents_ref,
+            row.nda_status, row.nda_ref, row.contract_ref, row.specifications_ref, row.accepted_offer_ref,
+            row.approved_plan_ref, row.conflict_declaration, row.confidentiality_note, row.status, row.decision_note,
+            row.decision_evidence, _iso(row.decided_at), _join(data.get("qualification_missing", [])),
+            indicators.get("assignments", 0), indicators.get("measured_assignments", 0),
+            indicators.get("quoted_total", 0), indicators.get("supplier_cost_total", 0),
+            indicators.get("cost_variance", 0), indicators.get("average_delay_days"),
+            indicators.get("critical_defects", 0), indicators.get("nonconformities", 0),
+            indicators.get("quality_conformity", 0), indicators.get("documentation_conformity", 0),
+            bool(row.active), row.version,
+        ) for row in partners for data in [partner_serializer(row) if partner_serializer else {}]
+          for indicators in [data.get("indicators") or {}]])
+        assignments = PartnerAssignment.query.order_by(PartnerAssignment.id.asc()).all() if PartnerAssignment else []
+        _sheet(wb, "Prestazioni partner", [
+            "ID", "ID partner", "Partner", "Ruolo", "Perimetro", "ID preventivo", "ID cantiere", "ID fase",
+            "Assunzioni", "Esclusioni", "Dipendenze", "Preventivo", "Costo finale base", "Extra", "Costo ritardo",
+            "Costo non conformità", "Costi operativi", "Costo fornitore", "Scostamento", "Fine promessa",
+            "Fine effettiva", "Ritardo giorni", "Stato", "Qualità", "Documentazione", "Evidenza",
+            "Difetti critici", "Non conformità", "Nota prestazione", "Accettata il", "Creata il", "Aggiornata il",
+        ], [(
+            row.id, row.partner_id, partner_names.get(row.partner_id, ""), row.role, row.scope, row.quote_id,
+            row.worksite_id, row.phase_id, row.assumptions, row.exclusions, row.dependencies, row.quoted_cost,
+            row.final_cost, row.extra_cost, row.delay_cost, row.nonconformity_cost, row.operational_cost,
+            data.get("total_supplier_cost", 0), data.get("cost_variance", 0), _iso(row.promised_end_at),
+            _iso(row.actual_end_at), data.get("delay_days"), row.status, row.quality_validation,
+            row.documentation_validation, row.evidence_ref, row.critical_defects, row.nonconformities,
+            row.performance_note, _iso(row.accepted_at), _iso(row.created_at), _iso(row.updated_at),
+        ) for row in assignments for data in [assignment_serializer(row) if assignment_serializer else {}]
+          for partner_names in [{p.id: p.name for p in partners}]])
+        partner_events = PartnerEvent.query.order_by(PartnerEvent.id.asc()).all() if PartnerEvent else []
+        _sheet(wb, "Storico partner", ["ID", "ID partner", "ID incarico", "ID autore", "Azione", "Dettaglio", "Data"], [
+            (row.id, row.partner_id, row.assignment_id, row.actor_user_id, row.action, row.detail, _iso(row.created_at))
+            for row in partner_events
+        ])
+
         portfolio_ext = app.extensions.get("aplsai_portfolio") or {}
         portfolio_serializer = portfolio_ext.get("portfolio_dict")
         portfolio = portfolio_serializer(include_history=True) if portfolio_serializer else {

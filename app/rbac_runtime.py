@@ -23,6 +23,7 @@ ROUTE_PERMISSIONS = {
     "/api/staff/launch-controls": "launch_read",
     "/api/staff/worksites": "worksite_read",
     "/api/staff/deliveries": "delivery_read",
+    "/api/staff/partners": "partner_registry_read",
 }
 
 PREFIX_PERMISSIONS = {
@@ -47,6 +48,8 @@ PREFIX_PERMISSIONS = {
     "/api/staff/deliveries/": "delivery_manage",
     "/api/staff/delivery-checks/": "delivery_manage",
     "/api/staff/delivery-defects/": "delivery_manage",
+    "/api/staff/partners/": "partner_registry_manage",
+    "/api/staff/partner-assignments/": "partner_registry_manage",
 }
 
 
