@@ -380,7 +380,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
           <h3>Casella ufficiale APLSAI HOME</h3>
           <div id="gmailConnectionBox" class="sum"><b>Verifica collegamento…</b></div>
           <div id="gmailConnectionActions"></div>
-          <p class="hint">I messaggi partono soltanto dopo la verifica del destinatario e l’approvazione dell’Admin. Le risposte vengono acquisite nella richiesta collegata e i dati riconosciuti richiedono sempre conferma umana.</p>
+          <p class="hint">I messaggi partono automaticamente soltanto dopo la verifica del destinatario. Le risposte vengono acquisite nella richiesta collegata e i dati riconosciuti richiedono sempre conferma umana.</p>
         </article>
         <article class="area-card">
           <h3>Messaggi e risposte</h3>
@@ -394,8 +394,8 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
           <label>Nome del referente</label><input id="outreachRecipientName" placeholder="Nome o agenzia">
           <label class="hint"><input id="outreachRecipientVerified" type="checkbox"> Ho verificato che email e referente appartengono a questo annuncio</label>
           <label>Domande aggiuntive</label><textarea id="outreachCustomQuestions" rows="3" placeholder="Una domanda per riga; il sistema aggiunge già le informazioni mancanti della scheda"></textarea>
-          <button class="primary full" onclick="generateInquiry()">Prepara messaggio automatico</button>
-          <p class="hint">Il messaggio viene creato come bozza. Nessun invio parte senza destinatario verificato e approvazione dell’admin.</p>
+          <button class="primary full" onclick="generateInquiry()">Prepara e invia automaticamente</button>
+          <p class="hint">Con un indirizzo verificato, il messaggio viene inviato automaticamente dalla casella APLSAI. Se il recapito manca o non è verificato, resta bloccato per evitare errori.</p>
           <div id="outreachInquiryList"></div>
         </article>
         <article class="area-card">
@@ -760,6 +760,12 @@ function choose(strategy,name){
    </p>
    <p style="font-size:16px;line-height:1.55">
      Il nostro obiettivo non è mandarti tante case, ma trovare <strong>la soluzione giusta</strong> — anche quando significa individuare una casa che oggi non è perfetta ma può diventare la tua <strong>Casa Possibile</strong>.
+   </p>
+   <p style="font-size:16px;line-height:1.55">
+     Non cercheremo soltanto case già pronte: valuteremo anche <strong>immobili da ristrutturare, immobili grandi da dividere, rustici recuperabili e nuove costruzioni</strong>. Ogni proposta sarà controllata per verificare costi, tempi, lavori e compatibilità con il tuo budget.
+   </p>
+   <p style="font-size:16px;line-height:1.55">
+     APLSAI collabora con una <strong>rete consolidata di imprese e professionisti del settore</strong>, disponibili a valutare e realizzare le singole operazioni. Questo ci permette di coordinare ricerca, verifiche, progettazione, ristrutturazione e costruzione.
    </p>
    <p style="font-size:16px;line-height:1.55">
      <strong>A presto.</strong> Ti contatteremo tramite WhatsApp o email per aggiornarti sulla ricerca e, appena avremo una soluzione interessante, te la presenteremo spiegandoti perché pensiamo possa funzionare per te.
@@ -1276,7 +1282,21 @@ window.openServerClient=function(id){
      <div class="sum"><b>Tipo dato</b>${p.is_test?'Prova':'Cliente reale'}${p.archived_at?' · Archiviato':''}</div>
      <div class="sum"><b>Strategia</b>${p.preferred_strategy||"—"}</div>
      <div class="sum"><b>Stato</b>${p.status}</div>
-     ${window.__staffRole==='admin'?`<button class="secondary full" onclick="setClientClassification(${Number(p.id)},${!p.is_test},${!!p.archived_at})">${p.is_test?'Trasforma in cliente reale':'Segna come dato di prova'}</button><button class="secondary full" onclick="setClientClassification(${Number(p.id)},${!!p.is_test},${!p.archived_at})">${p.archived_at?'Ripristina cliente':'Archivia senza eliminare'}</button>${p.is_test?`<button class="secondary full" style="color:#8b1e1e;border-color:#8b1e1e" onclick="deleteTestClient(${Number(p.id)})">Elimina definitivamente questa prova</button>`:''}`:''}`;
+     ${window.__staffRole==='admin'?`<button class="primary full" onclick="sendClientWelcomeEmail(${Number(p.id)})">Invia conferma via email</button><button class="secondary full" onclick="openClientWelcomeWhatsapp(${Number(p.id)})">Apri conferma su WhatsApp</button><button class="secondary full" onclick="setClientClassification(${Number(p.id)},${!p.is_test},${!!p.archived_at})">${p.is_test?'Trasforma in cliente reale':'Segna come dato di prova'}</button><button class="secondary full" onclick="setClientClassification(${Number(p.id)},${!!p.is_test},${!p.archived_at})">${p.archived_at?'Ripristina cliente':'Archivia senza eliminare'}</button>${p.is_test?`<button class="secondary full" style="color:#8b1e1e;border-color:#8b1e1e" onclick="deleteTestClient(${Number(p.id)})">Elimina definitivamente questa prova</button>`:''}`:''}`;
+};
+
+window.sendClientWelcomeEmail=async function(id){
+  if(!confirm('Inviare al cliente la conferma di iscrizione e presa in carico?'))return;
+  try{await api('/api/admin/clients/'+encodeURIComponent(id)+'/send-welcome-email',{method:'POST',body:'{}'});alert('Conferma inviata via email.');await renderStaffServer();openServerClient(id);}catch(e){alert(e.message||'Invio email non riuscito.');}
+};
+
+window.openClientWelcomeWhatsapp=function(id){
+  const p=(window.__staffServer?.clients||[]).find(x=>Number(x.id)===Number(id));if(!p)return;
+  let phone=String(p.phone||'').replace(/\D/g,'');if(phone.startsWith('00'))phone=phone.slice(2);if(phone.length===10&&phone.startsWith('3'))phone='39'+phone;
+  if(!phone){alert('Numero WhatsApp del cliente non disponibile.');return;}
+  const first=String(p.name||'').trim().split(/\s+/)[0]||'Cliente';
+  const message=`Buongiorno ${first}, ti confermiamo che la tua iscrizione ad APLSAI HOME è avvenuta correttamente e che la tua richiesta è stata presa in carico. Non cercheremo soltanto case già pronte: valuteremo anche immobili da ristrutturare, immobili grandi da dividere, rustici recuperabili e nuove costruzioni. Ogni proposta sarà controllata per verificare costi, tempi, lavori e compatibilità con il tuo budget. APLSAI collabora con una rete consolidata di imprese e professionisti del settore, disponibili a valutare e realizzare le singole operazioni. Questo ci permette di coordinare ricerca, verifiche, progettazione, ristrutturazione e costruzione. La ricerca è attiva e ti contatteremo quando avremo aggiornamenti. A presto, APLSAI HOME.`;
+  window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(message),'_blank','noopener');
 };
 
 window.setClientClassification=async function(id,isTest,archived){
@@ -1566,7 +1586,7 @@ window.generateInquiry=async function(){
  if(!opportunityId){alert('Seleziona l’opportunità da contattare.');return;}
  const custom=(document.getElementById('outreachCustomQuestions').value||'').split('\n').map(x=>x.trim()).filter(Boolean);
  const payload={recipient_email:(document.getElementById('outreachRecipientEmail').value||'').trim(),recipient_name:(document.getElementById('outreachRecipientName').value||'').trim(),recipient_verified:document.getElementById('outreachRecipientVerified').checked,custom_questions:custom};
- try{const d=await api(`/api/staff/opportunities/${opportunityId}/inquiries`,{method:'POST',body:JSON.stringify(payload)});document.getElementById('outreachCustomQuestions').value='';document.getElementById('outreachRecipientVerified').checked=false;await loadOutreach();await openInquiry(d.inquiry.id);}catch(e){alert(e.message||'Impossibile preparare il messaggio.');}
+ try{const d=await api(`/api/staff/opportunities/${opportunityId}/inquiries`,{method:'POST',body:JSON.stringify(payload)});document.getElementById('outreachCustomQuestions').value='';document.getElementById('outreachRecipientVerified').checked=false;await loadOutreach();await openInquiry(d.inquiry.id);if(d.auto_sent)alert('Messaggio inviato automaticamente dalla casella APLSAI HOME.');else if(d.auto_send_error)alert('Messaggio preparato, ma l’invio automatico non è riuscito: '+d.auto_send_error);else alert('Messaggio salvato: verifica prima l’indirizzo email del referente.');}catch(e){alert(e.message||'Impossibile preparare il messaggio.');}
 };
 window.openInquiry=async function(id){
  try{const d=await api(`/api/staff/inquiries/${id}`),x=d.inquiry,missing=(x.missing_fields||[]).map(m=>escapeHtml(m.label)).join(', ')||'Nessun dato essenziale mancante';window.__currentInquiryReplies={};const replies=(x.replies||[]).map(r=>{const suggestions=r.extracted?.suggested_updates||{};window.__currentInquiryReplies[r.id]=suggestions;return `<div class="sum"><b>Risposta · ${escapeHtml(r.status)}</b><small>${escapeHtml(r.sender_email||'Mittente non indicato')} · ${new Date(r.received_at).toLocaleString('it-IT')}</small><p style="white-space:pre-wrap">${escapeHtml(r.body)}</p><small>Dati proposti: ${escapeHtml(Object.keys(suggestions).join(', ')||'nessun dato riconosciuto automaticamente')}</small>${r.status==='Da esaminare'?`<br><button class="primary" onclick="confirmReply(${Number(r.id)})">Conferma dati riconosciuti</button>`:''}</div>`;}).join('')||'<p>Nessuna risposta acquisita.</p>';const approve=x.status==='Da approvare'&&window.__staffRole==='admin'?`<button class="primary full" onclick="approveInquiry(${Number(x.id)})">Approva messaggio</button>`:'';const send=x.status==='Approvata'&&window.__staffRole==='admin'?(window.__gmail?.connected?`<button class="primary full" onclick="sendInquiryEmail(${Number(x.id)})">Invia ora da ${escapeHtml(window.__gmail.connected_email)}</button>`:'<div class="sum"><b>Invio bloccato</b><small>Collega prima la casella Gmail ufficiale.</small></div>'):'';const box=document.getElementById('outreachDetail');box.style.display='block';box.innerHTML=`<h3>${escapeHtml(x.opportunity_title)}</h3><div class="sum"><b>${escapeHtml(x.status)}</b>Destinatario: ${escapeHtml(x.recipient_email||'da verificare')}<br><small>Informazioni richieste: ${missing}</small></div><label>Email referente</label><input id="inquiryEmail" type="email" value="${escapeHtml(x.recipient_email)}"><label class="hint"><input id="inquiryVerified" type="checkbox" ${x.recipient_verified?'checked':''}> Destinatario verificato sull’annuncio</label><label>Oggetto</label><input id="inquirySubject" value="${escapeHtml(x.subject)}"><label>Messaggio</label><textarea id="inquiryBody" rows="13">${escapeHtml(x.body)}</textarea>${!['Inviata','Risposta ricevuta','Chiusa','Annullata'].includes(x.status)?`<button class="secondary full" onclick="saveInquiry(${Number(x.id)},false)">Salva bozza</button><button class="primary full" onclick="saveInquiry(${Number(x.id)},true)">Invia all’approvazione</button>`:''}${approve}${send}<details open><summary>Acquisizione manuale di riserva</summary><label>Email mittente</label><input id="replySender" type="email"><label>Testo della risposta</label><textarea id="replyBody" rows="7" placeholder="Incolla qui la risposta ricevuta; i dati riconosciuti dovranno essere confermati"></textarea><button class="secondary full" onclick="captureReply(${Number(x.id)})">Analizza risposta</button></details><details open><summary>Risposte ricevute</summary>${replies}</details>`;box.scrollIntoView({behavior:'smooth',block:'start'});

@@ -270,7 +270,23 @@ def init_outreach(app, app_module):
         db.session.flush()
         audit(actor, "inquiry_generate", inquiry.id, f"opportunity={opportunity.id}; verified={verified}")
         db.session.commit()
-        return jsonify(inquiry=inquiry_dict(inquiry, include_replies=True)), 201
+        auto_sent = False
+        auto_send_error = ""
+        if verified:
+            send_now = (app.extensions.get("aplsai_gmail") or {}).get("send_inquiry_now")
+            if send_now:
+                try:
+                    send_now(inquiry, actor)
+                    auto_sent = True
+                except RuntimeError as exc:
+                    db.session.rollback()
+                    auto_send_error = str(exc)
+                    app.logger.warning("Invio automatico richiesta immobile non riuscito: inquiry=%s", inquiry.id)
+        return jsonify(
+            inquiry=inquiry_dict(inquiry, include_replies=True),
+            auto_sent=auto_sent,
+            auto_send_error=auto_send_error,
+        ), 201
 
     @app.patch("/api/staff/inquiries/<int:inquiry_id>")
     def inquiry_update(inquiry_id):

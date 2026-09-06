@@ -162,6 +162,38 @@ def init_gmail_integration(app, app_module):
             url += "?" + urlencode(params)
         return http_json(url, method=method, data=data, headers={"Authorization": f"Bearer {access_token()}"})
 
+    def send_plain_email(recipient, subject, body):
+        recipient = app_module.clean_email(recipient)
+        if not app_module.valid_email(recipient):
+            raise RuntimeError("Indirizzo email del cliente non valido.")
+        message = EmailMessage()
+        message["From"] = f"APLSAI HOME <{official_email()}>"
+        message["To"] = recipient
+        message["Reply-To"] = official_email()
+        message["Subject"] = app_module.clean_text(subject, 200)
+        message.set_content(app_module.clean_text(body, 12000))
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii").rstrip("=")
+        return gmail_request("messages/send", method="POST", data={"raw": raw})
+
+    def send_inquiry_now(inquiry, actor):
+        if not inquiry.recipient_verified or not app_module.valid_email(inquiry.recipient_email):
+            raise RuntimeError("Destinatario non verificato.")
+        message = EmailMessage()
+        message["From"] = f"APLSAI HOME <{official_email()}>"
+        message["To"] = inquiry.recipient_email
+        message["Reply-To"] = official_email()
+        message["Subject"] = inquiry.subject
+        message.set_content(inquiry.body)
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii").rstrip("=")
+        sent = gmail_request("messages/send", method="POST", data={"raw": raw})
+        inquiry.status = "Inviata"
+        inquiry.external_thread_id = app_module.clean_text(sent.get("threadId"), 255)
+        inquiry.sent_at = datetime.now(timezone.utc)
+        inquiry.updated_at = inquiry.sent_at
+        audit(actor, "gmail_send", inquiry.id, f"recipient={inquiry.recipient_email}; message={sent.get('id', '')}")
+        db.session.commit()
+        return sent
+
     def status_payload():
         row = connection()
         return {
@@ -309,23 +341,10 @@ def init_gmail_integration(app, app_module):
             return jsonify(error="Il messaggio deve essere approvato prima dell’invio."), 409
         if not inquiry.recipient_verified or not app_module.valid_email(inquiry.recipient_email):
             return jsonify(error="Destinatario non verificato."), 409
-        message = EmailMessage()
-        message["From"] = f"APLSAI HOME <{official_email()}>"
-        message["To"] = inquiry.recipient_email
-        message["Reply-To"] = official_email()
-        message["Subject"] = inquiry.subject
-        message.set_content(inquiry.body)
-        raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii").rstrip("=")
         try:
-            sent = gmail_request("messages/send", method="POST", data={"raw": raw})
+            sent = send_inquiry_now(inquiry, actor)
         except RuntimeError as exc:
             return jsonify(error=str(exc)), 502
-        inquiry.status = "Inviata"
-        inquiry.external_thread_id = app_module.clean_text(sent.get("threadId"), 255)
-        inquiry.sent_at = datetime.now(timezone.utc)
-        inquiry.updated_at = inquiry.sent_at
-        audit(actor, "gmail_send", inquiry.id, f"recipient={inquiry.recipient_email}; message={sent.get('id', '')}")
-        db.session.commit()
         return jsonify(inquiry=inquiry_dict(inquiry, include_replies=True), gmail_message_id=sent.get("id", ""))
 
     @app.post("/api/admin/gmail/sync")
@@ -382,10 +401,33 @@ def init_gmail_integration(app, app_module):
             db.session.rollback()
             return jsonify(error=str(exc)), 502
 
+    @app.post("/api/admin/clients/<int:client_id>/send-welcome-email")
+    def gmail_send_client_welcome(client_id):
+        actor, denied = staff_user("outreach_approve")
+        if denied:
+            return denied
+        client = db.session.get(app_module.User, client_id)
+        profile = app_module.ClientProfile.query.filter_by(user_id=client_id).first() if client else None
+        if not client or client.role != "client" or not profile:
+            return jsonify(error="Cliente non trovato."), 404
+        try:
+            sent = send_plain_email(
+                client.email,
+                "APLSAI HOME – richiesta ricevuta e presa in carico",
+                app_module.client_welcome_message(client.name),
+            )
+        except RuntimeError as exc:
+            return jsonify(error=str(exc)), 502
+        db.session.add(app_module.Update(client_id=client.id, message="Conferma di presa in carico inviata via email."))
+        audit(actor, "gmail_client_welcome", client.id, f"recipient={client.email}; message={sent.get('id', '')}")
+        db.session.commit()
+        return jsonify(sent=True, email=client.email)
+
     app.extensions["aplsai_gmail"] = {
         "GmailConnection": GmailConnection,
         "status_payload": status_payload,
         "encrypt_token": encrypt_token,
         "decrypt_token": decrypt_token,
+        "send_plain_email": send_plain_email,
+        "send_inquiry_now": send_inquiry_now,
     }
-

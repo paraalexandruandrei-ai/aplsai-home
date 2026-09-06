@@ -130,8 +130,24 @@ def create_app():
         db.session.add(Update(client_id=u.id, message="Ricerca APLSAI avviata."))
         db.session.commit()
 
+        confirmation_email_sent = False
+        gmail = app.extensions.get("aplsai_gmail") or {}
+        send_plain_email = gmail.get("send_plain_email")
+        if send_plain_email:
+            try:
+                send_plain_email(
+                    u.email,
+                    "APLSAI HOME – richiesta ricevuta e presa in carico",
+                    client_welcome_message(u.name),
+                )
+                db.session.add(Update(client_id=u.id, message="Conferma di presa in carico inviata via email."))
+                db.session.commit()
+                confirmation_email_sent = True
+            except RuntimeError:
+                app.logger.warning("Invio conferma iscrizione non riuscito per il cliente %s", u.id)
+
         establish_session(u.id)
-        return jsonify(client=client_obj(u.id)), 201
+        return jsonify(client=client_obj(u.id), confirmation_email_sent=confirmation_email_sent), 201
 
     @app.post("/api/client/login")
     def client_login():
@@ -500,6 +516,20 @@ def require_role(role):
         session.clear()
         return None
     return u
+
+
+def client_welcome_message(name):
+    safe_name = clean_text(name, 160) or "Cliente"
+    return (
+        f"Buongiorno {safe_name},\n\n"
+        "ti confermiamo che la tua iscrizione ad APLSAI HOME è avvenuta correttamente e che la tua richiesta è stata presa in carico.\n\n"
+        "Non cercheremo soltanto case già pronte: valuteremo anche immobili da ristrutturare, immobili grandi da dividere, rustici recuperabili e nuove costruzioni. Ogni proposta sarà controllata per verificare costi, tempi, lavori e compatibilità con il tuo budget.\n\n"
+        "APLSAI collabora con una rete consolidata di imprese e professionisti del settore, disponibili a valutare e realizzare le singole operazioni. Questo ci permette di coordinare ricerca, verifiche, progettazione, ristrutturazione e costruzione.\n\n"
+        "La ricerca risulta attiva. Ti contatteremo quando avremo aggiornamenti o quando serviranno ulteriori informazioni.\n\n"
+        "Puoi accedere alla tua Area Cliente dal sito APLSAI HOME utilizzando l’indirizzo email e la password scelti durante l’iscrizione.\n\n"
+        "A presto,\nAPLSAI HOME\n"
+        "aplsaihome.srl@gmail.com"
+    )
 
 
 def seed_admin():
