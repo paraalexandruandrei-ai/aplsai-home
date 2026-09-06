@@ -444,6 +444,56 @@ def init_operational_export(app, app_module):
             (row.id, row.launch_id, row.actor_user_id, row.action, row.detail, _iso(row.created_at)) for row in launch_events
         ])
 
+        worksite_ext = app.extensions.get("aplsai_worksites") or {}
+        WorksiteProject = worksite_ext.get("WorksiteProject")
+        WorksitePhase = worksite_ext.get("WorksitePhase")
+        WorksiteVariation = worksite_ext.get("WorksiteVariation")
+        WorksiteEvent = worksite_ext.get("WorksiteEvent")
+        worksite_serializer = worksite_ext.get("project_dict")
+        worksites = WorksiteProject.query.order_by(WorksiteProject.id.asc()).all() if WorksiteProject else []
+        _sheet(wb, "Cantieri", [
+            "ID", "ID avvio", "ID analisi", "Nome", "Stato", "ID responsabile", "Validatore tecnico",
+            "Budget iniziale", "Costi impegnati", "Spese effettive", "Costo a finire", "Varianti approvate",
+            "Previsione finale", "Budget residuo", "Avanzamento %", "Segnalazioni", "Inizio previsto",
+            "Fine prevista", "Inizio effettivo", "Fine effettiva", "Evidenza chiusura", "Verbale chiusura", "Versione",
+        ], [(
+            row.id, row.launch_id, row.analysis_id, row.name, row.status, row.responsible_user_id,
+            row.technical_validator, data.get("initial_budget"), data.get("committed_cost"), data.get("spent_cost"),
+            data.get("cost_to_complete"), data.get("approved_variations"), data.get("forecast_final_cost"),
+            data.get("budget_remaining"), data.get("progress_percent"), "; ".join(data.get("alerts") or []),
+            _iso(row.planned_start_at), _iso(row.planned_end_at), _iso(row.actual_start_at), _iso(row.actual_end_at),
+            row.closing_evidence, row.closing_note, row.version,
+        ) for row in worksites for data in [worksite_serializer(row) if worksite_serializer else {}]])
+        phases = WorksitePhase.query.order_by(WorksitePhase.project_id.asc(), WorksitePhase.code.asc()).all() if WorksitePhase else []
+        _sheet(wb, "Fasi cantiere", [
+            "ID", "ID cantiere", "ID SAL", "Codice", "Titolo", "Descrizione", "ID responsabile", "Fornitore",
+            "Contatto fornitore", "Inizio previsto", "Fine prevista", "Inizio effettivo", "Fine effettiva",
+            "Costo previsto", "Costo impegnato", "Speso", "Costo a finire", "Avanzamento %", "Stato",
+            "Soglia accettazione", "Esito prova", "Risultato osservato", "Evidenza", "Non conformità",
+            "Difetti critici", "Difetti residui", "Azioni obbligatorie", "Responsabile azione", "Scadenza azione",
+            "Condizioni passaggio", "Validazione tecnica", "Decisione Admin", "Nota Admin", "ID verificatore", "Verificato il",
+        ], [(
+            row.id, row.project_id, row.milestone_id, row.code, row.title, row.description, row.responsible_user_id,
+            row.supplier_name, row.supplier_contact, _iso(row.planned_start_at), _iso(row.planned_end_at),
+            _iso(row.actual_start_at), _iso(row.actual_end_at), row.planned_cost, row.committed_cost, row.spent_cost,
+            row.cost_to_complete, row.progress_percent, row.status, row.acceptance_threshold, row.test_result,
+            row.observed_result, row.evidence_ref, row.nonconformities, row.critical_defects, row.residual_defects,
+            row.mandatory_actions, row.action_owner, _iso(row.action_due_at), row.transition_conditions,
+            row.technical_validation, row.admin_decision, row.admin_note, row.verified_by_user_id, _iso(row.verified_at),
+        ) for row in phases])
+        variations = WorksiteVariation.query.order_by(WorksiteVariation.project_id.asc(), WorksiteVariation.code.asc()).all() if WorksiteVariation else []
+        _sheet(wb, "Varianti cantiere", [
+            "ID", "ID cantiere", "ID fase", "Codice", "Descrizione", "Motivo", "Impatto costo", "Ritardo giorni",
+            "Impatto margine", "Evidenza", "Stato", "ID richiedente", "ID decisore", "Motivazione decisione", "Decisa il", "Creata il",
+        ], [(row.id, row.project_id, row.phase_id, row.code, row.description, row.reason, row.cost_impact,
+             row.delay_days, row.margin_impact, row.evidence_ref, row.status, row.requested_by_user_id,
+             row.decided_by_user_id, row.decision_note, _iso(row.decided_at), _iso(row.created_at)) for row in variations])
+        worksite_events = WorksiteEvent.query.order_by(WorksiteEvent.id.asc()).all() if WorksiteEvent else []
+        _sheet(wb, "Storico cantieri", ["ID", "ID cantiere", "ID fase", "ID variante", "ID autore", "Azione", "Dettaglio", "Data"], [
+            (row.id, row.project_id, row.phase_id, row.variation_id, row.actor_user_id, row.action, row.detail, _iso(row.created_at))
+            for row in worksite_events
+        ])
+
         portfolio_ext = app.extensions.get("aplsai_portfolio") or {}
         portfolio_serializer = portfolio_ext.get("portfolio_dict")
         portfolio = portfolio_serializer(include_history=True) if portfolio_serializer else {

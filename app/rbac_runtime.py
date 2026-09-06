@@ -21,6 +21,7 @@ ROUTE_PERMISSIONS = {
     "/api/staff/quotes/prepare-co01": "quote_manage",
     "/api/staff/cash-controls": "cash_control_read",
     "/api/staff/launch-controls": "launch_read",
+    "/api/staff/worksites": "worksite_read",
 }
 
 PREFIX_PERMISSIONS = {
@@ -40,6 +41,8 @@ PREFIX_PERMISSIONS = {
     "/api/staff/cash-milestones/": "cash_control_manage",
     "/api/staff/launch-controls/": "launch_manage",
     "/api/staff/launch-checks/": "launch_manage",
+    "/api/staff/worksites/": "worksite_manage",
+    "/api/staff/worksite-phases/": "worksite_manage",
 }
 
 
