@@ -132,6 +132,24 @@ def init_outreach(app, app_module):
         )
         return subject, body
 
+    def follow_up_message(opportunity, inquiry):
+        """Prepare a concise follow-up when a reply contains no usable facts."""
+        missing = missing_information(opportunity)
+        questions = "\n".join(f"- {item['question']}" for item in missing)
+        if not questions:
+            questions = "- Ci conferma che le informazioni dell’annuncio sono ancora aggiornate?"
+        subject = inquiry.subject if inquiry.subject.lower().startswith("re:") else f"Re: {inquiry.subject}"
+        body = (
+            f"Buongiorno{(' ' + inquiry.recipient_name) if inquiry.recipient_name else ''},\n\n"
+            "grazie per la risposta. Per completare la valutazione preliminare dell’immobile "
+            "abbiamo ancora bisogno di queste informazioni:\n"
+            f"{questions}\n\n"
+            "Può rispondere anche in modo sintetico, punto per punto. "
+            f"Riferimento interno: APLSAI-OPP-{opportunity.id:05d}.\n\n"
+            "Grazie,\nAPLSAI HOME"
+        )
+        return subject, body, missing
+
     def extract_reply(body):
         """Conservative suggestions only: every value must be confirmed by staff."""
         text = app_module.clean_text(body, 12000)
@@ -167,7 +185,13 @@ def init_outreach(app, app_module):
         if re.search(r"\b(planimetria (?:è |e )?(?:disponibile|allegata|presente)|allego la planimetria)\b", lower):
             values["planimetry_status"] = "Disponibile"
             evidence["planimetry_status"] = "La risposta menziona una planimetria disponibile o allegata."
-        return {"suggested_updates": values, "evidence": evidence, "requires_confirmation": True}
+        return {
+            "suggested_updates": values,
+            "evidence": evidence,
+            "requires_confirmation": True,
+            "reply_quality": "Informativa" if values else "Non informativa",
+            "needs_follow_up": not bool(values),
+        }
 
     def reply_dict(reply):
         return {
@@ -218,7 +242,23 @@ def init_outreach(app, app_module):
         for reply in InquiryReply.query.filter_by(status="Da esaminare").order_by(InquiryReply.received_at.desc()).all():
             inquiry = db.session.get(OpportunityInquiry, reply.inquiry_id)
             opportunity = db.session.get(PropertyOpportunity, inquiry.opportunity_id) if inquiry else None
-            results.insert(0, {"level": "action", "type": "reply_review", "opportunity_id": opportunity.id if opportunity else None, "inquiry_id": inquiry.id if inquiry else None, "reply_id": reply.id, "message": f"{opportunity.title if opportunity else 'Opportunità'}: risposta ricevuta, dati da confermare."})
+            extracted = safe_json(reply.extracted_json, {})
+            suggestions = extracted.get("suggested_updates") if isinstance(extracted, dict) else {}
+            if not isinstance(suggestions, dict):
+                suggestions = {}
+            needs_follow_up = not suggestions
+            results.insert(0, {
+                "level": "action",
+                "type": "reply_follow_up" if needs_follow_up else "reply_review",
+                "opportunity_id": opportunity.id if opportunity else None,
+                "inquiry_id": inquiry.id if inquiry else None,
+                "reply_id": reply.id,
+                "message": (
+                    f"{opportunity.title if opportunity else 'Opportunità'}: la risposta non contiene dati utili; prepara un sollecito mirato."
+                    if needs_follow_up else
+                    f"{opportunity.title if opportunity else 'Opportunità'}: risposta ricevuta, dati da confermare."
+                ),
+            })
         return results
 
     @app.get("/api/staff/outreach")
@@ -444,6 +484,70 @@ def init_outreach(app, app_module):
         audit(actor, "inquiry_reply_apply", inquiry.id, f"reply={reply.id}; fields={','.join(sorted(updates))}")
         db.session.commit()
         return jsonify(reply=reply_dict(reply), inquiry=inquiry_dict(inquiry, include_replies=True), opportunity=opportunity_dict(opportunity, include_details=True))
+
+    @app.post("/api/staff/inquiry-replies/<int:reply_id>/follow-up")
+    def reply_follow_up(reply_id):
+        actor, denied = staff_user("outreach_manage")
+        if denied:
+            return denied
+        reply = db.session.get(InquiryReply, reply_id)
+        if not reply:
+            return jsonify(error="Risposta non trovata."), 404
+        if reply.status != "Da esaminare":
+            return jsonify(error="Questa risposta è già stata gestita."), 409
+        extracted = safe_json(reply.extracted_json, {})
+        suggestions = extracted.get("suggested_updates") if isinstance(extracted, dict) else {}
+        if isinstance(suggestions, dict) and suggestions:
+            return jsonify(error="Confermare prima i dati riconosciuti; il sollecito sarà preparato sui dati ancora mancanti."), 409
+        inquiry = db.session.get(OpportunityInquiry, reply.inquiry_id)
+        opportunity = db.session.get(PropertyOpportunity, inquiry.opportunity_id) if inquiry else None
+        if not inquiry or not opportunity or opportunity.archived_at:
+            return jsonify(error="Opportunità collegata non disponibile."), 404
+
+        recipient = app_module.clean_email(reply.sender_email or inquiry.recipient_email)
+        verified = bool(
+            inquiry.recipient_verified
+            and app_module.valid_email(recipient)
+            and recipient == app_module.clean_email(inquiry.recipient_email)
+        )
+        subject, body, missing = follow_up_message(opportunity, inquiry)
+        follow_up = OpportunityInquiry(
+            opportunity_id=opportunity.id,
+            recipient_name=inquiry.recipient_name,
+            recipient_email=recipient if app_module.valid_email(recipient) else "",
+            recipient_verified=verified,
+            subject=subject,
+            body=body,
+            missing_fields_json=json.dumps(missing, ensure_ascii=False),
+            custom_questions_json="[]",
+            status="Bozza" if verified else "Destinatario da verificare",
+            created_by_user_id=actor.id,
+        )
+        db.session.add(follow_up)
+        reply.status = "Archiviata"
+        reply.reviewed_by_user_id = actor.id
+        reply.reviewed_at = datetime.now(timezone.utc)
+        db.session.flush()
+        audit(actor, "inquiry_follow_up_generate", follow_up.id, f"reply={reply.id}; opportunity={opportunity.id}")
+        db.session.commit()
+
+        auto_sent = False
+        auto_send_error = ""
+        if verified:
+            send_now = (app.extensions.get("aplsai_gmail") or {}).get("send_inquiry_now")
+            if send_now:
+                try:
+                    send_now(follow_up, actor)
+                    auto_sent = True
+                except RuntimeError as exc:
+                    db.session.rollback()
+                    auto_send_error = str(exc)
+                    app.logger.warning("Invio automatico sollecito non riuscito: inquiry=%s", follow_up.id)
+        return jsonify(
+            inquiry=inquiry_dict(follow_up, include_replies=True),
+            auto_sent=auto_sent,
+            auto_send_error=auto_send_error,
+        ), 201
 
     app.extensions["aplsai_outreach"] = {
         "OpportunityInquiry": OpportunityInquiry, "InquiryReply": InquiryReply,

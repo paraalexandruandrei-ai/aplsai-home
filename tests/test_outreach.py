@@ -153,6 +153,39 @@ class OutreachCheck(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.get_json())
         self.assertTrue(any(item["type"] == "missing_contact" for item in response.get_json()["notifications"]))
 
+    def test_non_informative_reply_creates_targeted_follow_up_once(self):
+        operator = self.client_for("outreach-operator@example.com")
+        opportunity = self.create_opportunity(operator, "follow-up@example.com")
+        inquiry = operator.post(f"/api/staff/opportunities/{opportunity['id']}/inquiries", json={
+            "recipient_verified": True,
+        }).get_json()["inquiry"]
+        captured = operator.post(f"/api/staff/inquiries/{inquiry['id']}/replies", json={
+            "sender_email": "follow-up@example.com",
+            "body": "Buongiorno, grazie per il messaggio.",
+        })
+        self.assertEqual(captured.status_code, 201, captured.get_json())
+        reply = captured.get_json()["reply"]
+        self.assertEqual(reply["extracted"]["reply_quality"], "Non informativa")
+        self.assertTrue(reply["extracted"]["needs_follow_up"])
+
+        dashboard = operator.get("/api/staff/outreach")
+        self.assertTrue(any(
+            item["type"] == "reply_follow_up" and item["reply_id"] == reply["id"]
+            for item in dashboard.get_json()["notifications"]
+        ))
+
+        follow_up = operator.post(f"/api/staff/inquiry-replies/{reply['id']}/follow-up", json={})
+        self.assertEqual(follow_up.status_code, 201, follow_up.get_json())
+        message = follow_up.get_json()["inquiry"]
+        self.assertTrue(message["recipient_verified"])
+        self.assertEqual(message["recipient_email"], "follow-up@example.com")
+        self.assertIn("abbiamo ancora bisogno", message["body"])
+        self.assertIn("L’immobile è ancora disponibile", message["body"])
+        self.assertFalse(follow_up.get_json()["auto_sent"])
+
+        duplicate = operator.post(f"/api/staff/inquiry-replies/{reply['id']}/follow-up", json={})
+        self.assertEqual(duplicate.status_code, 409, duplicate.get_json())
+
 
 if __name__ == "__main__":
     unittest.main()

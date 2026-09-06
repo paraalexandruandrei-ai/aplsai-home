@@ -749,9 +749,14 @@ class OperatorAccountsCheck(unittest.TestCase):
         duplicate["external_ref"] = "ANN-124"
         self.assertEqual(admin.post("/api/staff/opportunities", json=duplicate).status_code, 409)
 
-        blocked = admin.post(f"/api/staff/opportunities/{opportunity_id}/promote", json={})
-        self.assertEqual(blocked.status_code, 409, blocked.get_json())
-        self.assertIn("analisi preliminare", blocked.get_json()["missing"])
+        # Anche una scheda incompleta può diventare immobile: i dati mancanti
+        # restano esplicitamente "Da verificare" e non bloccano la registrazione.
+        promoted = admin.post(f"/api/staff/opportunities/{opportunity_id}/promote", json={})
+        self.assertEqual(promoted.status_code, 201, promoted.get_json())
+        property_id = promoted.get_json()["property"]["id"]
+        self.assertEqual(promoted.get_json()["property"]["ref"], f"OPP-{opportunity_id:05d}")
+        self.assertEqual(promoted.get_json()["property"]["technical_verification"], "Da verificare")
+        self.assertEqual(promoted.get_json()["opportunity"]["linked_property_id"], property_id)
 
         invalid_decision = admin.patch(f"/api/staff/opportunities/{opportunity_id}", json={
             "decision": "Non procedere", "rejection_reason": "",
@@ -765,15 +770,8 @@ class OperatorAccountsCheck(unittest.TestCase):
             "change_note": "Controllo preliminare completato",
         })
         self.assertEqual(updated.status_code, 200, updated.get_json())
-        self.assertEqual(updated.get_json()["opportunity"]["version"], 2)
-
-        promoted = admin.post(f"/api/staff/opportunities/{opportunity_id}/promote", json={})
-        self.assertEqual(promoted.status_code, 201, promoted.get_json())
-        property_id = promoted.get_json()["property"]["id"]
-        self.assertEqual(promoted.get_json()["property"]["ref"], f"OPP-{opportunity_id:05d}")
-        self.assertEqual(promoted.get_json()["property"]["technical_verification"], "Verifica in corso")
-        self.assertEqual(promoted.get_json()["opportunity"]["linked_property_id"], property_id)
-        self.assertEqual([row["version"] for row in promoted.get_json()["opportunity"]["revisions"][:3]], [3, 2, 1])
+        self.assertEqual(updated.get_json()["opportunity"]["version"], 3)
+        self.assertEqual([row["version"] for row in updated.get_json()["opportunity"]["revisions"][:3]], [3, 2, 1])
         self.assertEqual(admin.post(f"/api/staff/opportunities/{opportunity_id}/promote", json={}).status_code, 409)
 
         property_matches = admin.get(f"/api/staff/match/property/{property_id}")
