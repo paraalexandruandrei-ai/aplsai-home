@@ -35,6 +35,7 @@ from app.work_tasks import init_work_tasks
 from app.pilot_cases import init_pilot_cases
 from app.transactions import init_transactions
 from app.quotes import init_quotes
+from app.launch_control import init_launch_control
 
 
 class OperatorAccountsCheck(unittest.TestCase):
@@ -61,6 +62,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         init_pilot_cases(cls.app, app_module)
         init_transactions(cls.app, app_module)
         init_quotes(cls.app, app_module)
+        init_launch_control(cls.app, app_module)
 
         with cls.app.app_context():
             for role, email in [
@@ -349,6 +351,9 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertIn("Controlli di cassa", workbook.sheetnames)
         self.assertIn("SAL e pagamenti", workbook.sheetnames)
         self.assertIn("Storico controlli cassa", workbook.sheetnames)
+        self.assertIn("Avvio operazioni", workbook.sheetnames)
+        self.assertIn("Controlli avvio", workbook.sheetnames)
+        self.assertIn("Storico avvii", workbook.sheetnames)
         self.assertIn("Portafoglio", workbook.sheetnames)
         self.assertIn("Stress portafoglio", workbook.sheetnames)
         self.assertIn("Portafoglio mensile", workbook.sheetnames)

@@ -416,6 +416,33 @@ def init_operational_export(app, app_module):
             (row.id, row.control_id, row.milestone_id, row.actor_user_id, row.action, row.note, _iso(row.created_at))
             for row in control_events
         ])
+        launch_ext = app.extensions.get("aplsai_launch_control") or {}
+        OperationLaunch = launch_ext.get("OperationLaunch")
+        LaunchCheck = launch_ext.get("LaunchCheck")
+        LaunchEvent = launch_ext.get("LaunchEvent")
+        launches = OperationLaunch.query.order_by(OperationLaunch.id.asc()).all() if OperationLaunch else []
+        _sheet(wb, "Avvio operazioni", [
+            "ID", "ID analisi", "ID responsabile", "Stato", "Decisione finale", "Verbale finale",
+            "ID autorizzatore", "Autorizzato il", "Versione", "Creato il", "Aggiornato il",
+        ], [(
+            row.id, row.analysis_id, row.assigned_to_user_id, row.status, row.final_decision,
+            row.final_note, row.authorized_by_user_id, _iso(row.authorized_at), row.version,
+            _iso(row.created_at), _iso(row.updated_at),
+        ) for row in launches])
+        launch_checks = LaunchCheck.query.order_by(LaunchCheck.launch_id.asc(), LaunchCheck.code.asc()).all() if LaunchCheck else []
+        _sheet(wb, "Controlli avvio", [
+            "ID", "ID avvio", "Codice", "Controllo", "Risultato atteso", "Stato automatico",
+            "Dettaglio automatico", "Evidenza", "Difetti residui", "Azione correttiva",
+            "Verifica Admin", "Nota verifica", "ID verificatore", "Verificato il",
+        ], [(
+            row.id, row.launch_id, row.code, row.title, row.expected_result, row.automatic_status,
+            row.automatic_detail, row.evidence_ref, row.residual_defects, row.corrective_action,
+            row.verification_status, row.verification_note, row.verified_by_user_id, _iso(row.verified_at),
+        ) for row in launch_checks])
+        launch_events = LaunchEvent.query.order_by(LaunchEvent.id.asc()).all() if LaunchEvent else []
+        _sheet(wb, "Storico avvii", ["ID", "ID avvio", "ID autore", "Azione", "Dettaglio", "Data"], [
+            (row.id, row.launch_id, row.actor_user_id, row.action, row.detail, _iso(row.created_at)) for row in launch_events
+        ])
 
         portfolio_ext = app.extensions.get("aplsai_portfolio") or {}
         portfolio_serializer = portfolio_ext.get("portfolio_dict")

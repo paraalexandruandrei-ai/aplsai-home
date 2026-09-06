@@ -20,6 +20,7 @@ ROUTE_PERMISSIONS = {
     "/api/staff/quotes": "quote_read",
     "/api/staff/quotes/prepare-co01": "quote_manage",
     "/api/staff/cash-controls": "cash_control_read",
+    "/api/staff/launch-controls": "launch_read",
 }
 
 PREFIX_PERMISSIONS = {
@@ -37,6 +38,8 @@ PREFIX_PERMISSIONS = {
     "/api/staff/quotes/": "quote_manage",
     "/api/staff/cash-controls/": "cash_control_manage",
     "/api/staff/cash-milestones/": "cash_control_manage",
+    "/api/staff/launch-controls/": "launch_manage",
+    "/api/staff/launch-checks/": "launch_manage",
 }
 
 
