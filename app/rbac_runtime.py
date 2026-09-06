@@ -17,6 +17,8 @@ ROUTE_PERMISSIONS = {
     "/api/staff/tasks": "task_read",
     "/api/staff/pilot-cases": "pilot_read",
     "/api/staff/transactions": "transaction_read",
+    "/api/staff/quotes": "quote_read",
+    "/api/staff/quotes/prepare-co01": "quote_manage",
 }
 
 PREFIX_PERMISSIONS = {
@@ -31,6 +33,7 @@ PREFIX_PERMISSIONS = {
     "/api/staff/pilot-cases/": "pilot_manage",
     "/api/staff/pilot-checks/": "pilot_manage",
     "/api/staff/transactions/": "transaction_manage",
+    "/api/staff/quotes/": "quote_manage",
 }
 
 

@@ -599,6 +599,30 @@ def init_operational_export(app, app_module):
             row.verification_status, row.verification_note, row.verified_by_user_id,
             names.get(row.verified_by_user_id, ""), _iso(row.verified_at),
         ) for row in pilot_checks])
+        quote_ext = app.extensions.get("aplsai_quotes") or {}
+        QuoteRequest = quote_ext.get("QuoteRequest")
+        QuoteEvent = quote_ext.get("QuoteEvent")
+        quotes = QuoteRequest.query.order_by(QuoteRequest.code.asc()).all() if QuoteRequest else []
+        _sheet(wb, "Richieste preventivo", [
+            "ID", "ID Caso Oro", "ID immobile", "Codice", "Categoria", "Stima v1.0",
+            "Destinatario tipo", "Destinatario / società", "Email", "Destinatario verificato",
+            "Stato invio", "Data invio", "Scadenza", "Data offerta", "Imponibile", "IVA",
+            "Importo offerto", "Validità", "Tempi", "Modalità pagamento", "Responsabile offerta",
+            "Completezza", "Esito verifica", "Documento richiesto", "Documento / percorso",
+            "Note e condizioni", "Creato il", "Aggiornato il",
+        ], [(
+            row.id, row.pilot_case_id, row.property_id, row.code, row.category, row.estimate_v1,
+            row.recipient_type, row.recipient_company, row.recipient_email, row.recipient_verified,
+            row.send_status, _iso(row.sent_at), _iso(row.due_at), _iso(row.offer_at), row.offered_net,
+            row.offered_vat, row.offered_total, row.validity, row.timing, row.payment_terms,
+            row.offer_manager, row.completeness, row.verification_status, row.required_document,
+            row.document_ref, row.notes, _iso(row.created_at), _iso(row.updated_at),
+        ) for row in quotes])
+        quote_events = QuoteEvent.query.order_by(QuoteEvent.id.asc()).all() if QuoteEvent else []
+        _sheet(wb, "Storico preventivi", ["ID", "ID preventivo", "ID autore", "Azione", "Nota", "Data"], [
+            (row.id, row.quote_id, row.actor_user_id, row.action, row.note, _iso(row.created_at))
+            for row in quote_events
+        ])
         Audit = operations_ext.get("AuditEvent")
         events = Audit.query.order_by(Audit.id.asc()).all() if Audit else []
         _sheet(wb, "Audit", ["ID", "ID autore", "Azione", "Tipo oggetto", "ID oggetto", "Esito", "Dettaglio", "Data"], [
