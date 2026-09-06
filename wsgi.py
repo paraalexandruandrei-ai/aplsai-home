@@ -23,6 +23,7 @@ from app.investors import init_investors
 from app.pilot_cases import init_pilot_cases
 from app.transactions import init_transactions
 from app.quotes import init_quotes
+from app.cash_controls import init_cash_controls
 
 app = app_module.create_app()
 init_operations(app, app_module)
@@ -47,6 +48,7 @@ init_work_tasks(app, app_module)
 init_pilot_cases(app, app_module)
 init_transactions(app, app_module)
 init_quotes(app, app_module)
+init_cash_controls(app, app_module)
 
 
 def _sanitize_value(value, key=None):

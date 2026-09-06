@@ -386,6 +386,36 @@ def init_operational_export(app, app_module):
             row.id, row.plan_id, row.version, row.changed_by_user_id,
             row.change_note, _iso(row.created_at), row.snapshot_json,
         ) for row in cash_revisions])
+        control_ext = app.extensions.get("aplsai_cash_controls") or {}
+        CashControl = control_ext.get("CashControl")
+        CashMilestone = control_ext.get("CashMilestone")
+        CashControlEvent = control_ext.get("CashControlEvent")
+        controls = CashControl.query.order_by(CashControl.plan_id.asc()).all() if CashControl else []
+        _sheet(wb, "Controlli di cassa", [
+            "ID", "ID piano", "Modalità", "Riserva imprevisti %", "Anticipazione %",
+            "Titoli non quietanzati %", "Limite capitale proprio", "Mesi riserva",
+            "Versione", "Aggiornato il", "Note",
+        ], [(
+            row.id, row.plan_id, row.mode, row.contingency_percent, row.advance_percent,
+            row.unpaid_titles_percent, row.own_capital_limit, row.reserve_months,
+            row.version, _iso(row.updated_at), row.notes,
+        ) for row in controls])
+        milestones = CashMilestone.query.order_by(CashMilestone.control_id.asc(), CashMilestone.number.asc()).all() if CashMilestone else []
+        _sheet(wb, "SAL e pagamenti", [
+            "ID", "ID controllo", "Numero", "Titolo", "Risultato verificabile", "Importo pianificato",
+            "Scadenza", "Stato", "Evidenza", "Nota verifica", "Difetti critici", "Verificata il",
+            "Stato pagamento", "Autorizzato il", "Importo pagato", "Riferimento pagamento", "Pagato il",
+        ], [(
+            row.id, row.control_id, row.number, row.title, row.deliverable, row.planned_amount,
+            _iso(row.due_at), row.status, row.evidence_ref, row.verification_note, row.critical_defects,
+            _iso(row.verified_at), row.payment_status, _iso(row.authorized_at), row.paid_amount,
+            row.payment_reference, _iso(row.paid_at),
+        ) for row in milestones])
+        control_events = CashControlEvent.query.order_by(CashControlEvent.id.asc()).all() if CashControlEvent else []
+        _sheet(wb, "Storico controlli cassa", ["ID", "ID controllo", "ID SAL", "ID autore", "Azione", "Nota", "Data"], [
+            (row.id, row.control_id, row.milestone_id, row.actor_user_id, row.action, row.note, _iso(row.created_at))
+            for row in control_events
+        ])
 
         portfolio_ext = app.extensions.get("aplsai_portfolio") or {}
         portfolio_serializer = portfolio_ext.get("portfolio_dict")

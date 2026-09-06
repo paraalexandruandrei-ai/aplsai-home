@@ -25,6 +25,7 @@ from app.property_profiles import init_property_profiles
 from app.scenarios import init_scenarios
 from app.feasibility import init_feasibility
 from app.cashflow import init_cashflow
+from app.cash_controls import init_cash_controls
 from app.portfolio import init_portfolio
 from app.capacity import init_capacity
 from app.opportunities import init_opportunities
@@ -50,6 +51,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         init_scenarios(cls.app, app_module)
         init_feasibility(cls.app, app_module)
         init_cashflow(cls.app, app_module)
+        init_cash_controls(cls.app, app_module)
         init_portfolio(cls.app, app_module)
         init_capacity(cls.app, app_module)
         init_opportunities(cls.app, app_module)
@@ -344,6 +346,9 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertIn("Cassa mensile", workbook.sheetnames)
         self.assertIn("Stress di cassa", workbook.sheetnames)
         self.assertIn("Storico cassa", workbook.sheetnames)
+        self.assertIn("Controlli di cassa", workbook.sheetnames)
+        self.assertIn("SAL e pagamenti", workbook.sheetnames)
+        self.assertIn("Storico controlli cassa", workbook.sheetnames)
         self.assertIn("Portafoglio", workbook.sheetnames)
         self.assertIn("Stress portafoglio", workbook.sheetnames)
         self.assertIn("Portafoglio mensile", workbook.sheetnames)
