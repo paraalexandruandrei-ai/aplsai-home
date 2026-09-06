@@ -15,6 +15,7 @@ ROUTE_PERMISSIONS = {
     "/api/staff/outreach": "outreach_read",
     "/api/staff/protocol": "protocol_read",
     "/api/staff/tasks": "task_read",
+    "/api/staff/pilot-cases": "pilot_read",
 }
 
 PREFIX_PERMISSIONS = {
@@ -26,6 +27,8 @@ PREFIX_PERMISSIONS = {
     "/api/staff/inquiry-replies/": "outreach_manage",
     "/api/staff/protocol/": "protocol_read",
     "/api/staff/tasks/": "task_read",
+    "/api/staff/pilot-cases/": "pilot_manage",
+    "/api/staff/pilot-checks/": "pilot_manage",
 }
 
 

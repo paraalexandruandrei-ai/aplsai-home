@@ -541,6 +541,32 @@ def init_operational_export(app, app_module):
             row.id, row.task_id, row.author_user_id, names.get(row.author_user_id, ""),
             row.update_type, row.message, _iso(row.created_at),
         ) for row in task_updates])
+        pilot_ext = app.extensions.get("aplsai_pilot_cases") or {}
+        PilotCase = pilot_ext.get("PilotCase")
+        PilotCheck = pilot_ext.get("PilotCheck")
+        pilot_cases = PilotCase.query.order_by(PilotCase.code.asc()).all() if PilotCase else []
+        _sheet(wb, "Casi Oro", [
+            "ID", "Codice", "Titolo", "Obiettivo", "Stato", "ID cliente",
+            "ID opportunità", "ID immobile", "ID scenario", "ID fattibilità",
+            "ID responsabile", "Responsabile", "Note", "Creato il", "Aggiornato il",
+        ], [(
+            row.id, row.code, row.title, row.objective, row.status, row.client_id,
+            row.opportunity_id, row.property_id, row.scenario_id, row.feasibility_id,
+            row.assigned_to_user_id, names.get(row.assigned_to_user_id, ""), row.notes,
+            _iso(row.created_at), _iso(row.updated_at),
+        ) for row in pilot_cases])
+        pilot_checks = PilotCheck.query.order_by(PilotCheck.code.asc()).all() if PilotCheck else []
+        _sheet(wb, "Registro collaudo", [
+            "ID", "ID Caso Oro", "Codice", "Prova", "Risultato atteso", "Esito",
+            "Evidenza", "Risultato osservato", "ID esecutore", "Esecutore", "Eseguita il",
+            "Verifica Admin", "Nota verifica", "ID verificatore", "Verificatore", "Verificata il",
+        ], [(
+            row.id, row.case_id, row.code, row.title, row.expected_result, row.status,
+            row.evidence_ref, row.result_note, row.executed_by_user_id,
+            names.get(row.executed_by_user_id, ""), _iso(row.executed_at),
+            row.verification_status, row.verification_note, row.verified_by_user_id,
+            names.get(row.verified_by_user_id, ""), _iso(row.verified_at),
+        ) for row in pilot_checks])
         Audit = operations_ext.get("AuditEvent")
         events = Audit.query.order_by(Audit.id.asc()).all() if Audit else []
         _sheet(wb, "Audit", ["ID", "ID autore", "Azione", "Tipo oggetto", "ID oggetto", "Esito", "Dettaglio", "Data"], [

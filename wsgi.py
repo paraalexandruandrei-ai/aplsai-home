@@ -20,6 +20,7 @@ from app.gmail_integration import init_gmail_integration
 from app.staff_protocol import init_staff_protocol
 from app.work_tasks import init_work_tasks
 from app.investors import init_investors
+from app.pilot_cases import init_pilot_cases
 
 app = app_module.create_app()
 init_operations(app, app_module)
@@ -41,6 +42,7 @@ init_outreach(app, app_module)
 init_gmail_integration(app, app_module)
 init_staff_protocol(app, app_module)
 init_work_tasks(app, app_module)
+init_pilot_cases(app, app_module)
 
 
 def _sanitize_value(value, key=None):
