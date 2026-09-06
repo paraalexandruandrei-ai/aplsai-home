@@ -38,6 +38,7 @@ class TransactionTest(unittest.TestCase):
             operator = app_module.User(
                 role="operator", name="Operatore Trattativa", email="transaction-operator@example.com",
                 phone="", password_hash=generate_password_hash("OperatorPass12345", method="scrypt"),
+                permissions_json=json.dumps(["transaction_read", "transaction_manage"]),
             )
             app_module.db.session.add_all([client, operator])
             app_module.db.session.flush()

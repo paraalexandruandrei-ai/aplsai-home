@@ -259,13 +259,21 @@ def create_app():
         u = require_role("staff")
         if not u:
             return jsonify(error="Non autorizzato."), 401
-        clients = [client_obj(x.user_id) for x in ClientProfile.query.all()]
+        grants = None
+        if u.role == "operator":
+            resolver = (app.extensions.get("aplsai_staff_accounts") or {}).get("operator_permissions")
+            grants = set(resolver(u)) if resolver else set()
+        see_all = grants is None or "dashboard_full" in grants
+        see_clients = see_all or bool(grants.intersection({"client_read_all", "matching_run", "document_share"}))
+        see_properties = see_all or bool(grants.intersection({"property_create", "property_update", "matching_run", "scenario_manage", "feasibility_manage"}))
+        see_deals = see_all or "transaction_read" in grants
+        clients = [client_obj(x.user_id) for x in ClientProfile.query.all()] if see_clients else []
         return jsonify(
             clients=clients,
-            properties=[p.to_dict() for p in Property.query.order_by(Property.created_at.desc()).all()],
-            deals=[d.to_dict() for d in Deal.query.order_by(Deal.updated_at.desc()).all()],
-            referrals=[r.to_dict() for r in Referral.query.order_by(Referral.created_at.desc()).all()],
-            documents=[d.to_dict() for d in Document.query.order_by(Document.created_at.desc()).all()]
+            properties=[p.to_dict() for p in Property.query.order_by(Property.created_at.desc()).all()] if see_properties else [],
+            deals=[d.to_dict() for d in Deal.query.order_by(Deal.updated_at.desc()).all()] if see_deals else [],
+            referrals=[r.to_dict() for r in Referral.query.order_by(Referral.created_at.desc()).all()] if see_all else [],
+            documents=[d.to_dict() for d in Document.query.order_by(Document.created_at.desc()).all()] if (see_all or "document_share" in grants) else []
         )
 
     @app.post("/api/staff/properties")

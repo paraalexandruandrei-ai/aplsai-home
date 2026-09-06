@@ -8,6 +8,7 @@ MIGRATION_ID = "20260902_01_user_active"
 CLIENT_CLASSIFICATION_MIGRATION_ID = "20260905_03_client_classification"
 INITIAL_TEST_PURGE_MIGRATION_ID = "20260905_04_purge_confirmed_test_clients"
 PROPERTY_PROFILE_MIGRATION_ID = "20260905_05_property_profile_v1"
+OPERATOR_ACCESS_MIGRATION_ID = "20260906_15_operator_access_control"
 
 
 def _database_url():
@@ -55,6 +56,48 @@ def ensure_user_active_column():
                 ),
                 {"id": MIGRATION_ID, "applied_at": datetime.now(timezone.utc)},
             )
+        return True
+    finally:
+        engine.dispose()
+
+
+def ensure_operator_access_columns():
+    """Add per-operator grants and an explicit first-login password state."""
+    engine = create_engine(_database_url(), pool_pre_ping=True)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS aplsai_schema_migration ("
+                "id VARCHAR(100) PRIMARY KEY, applied_at TIMESTAMP NOT NULL)"
+            ))
+            already = conn.execute(
+                text("SELECT 1 FROM aplsai_schema_migration WHERE id=:id"),
+                {"id": OPERATOR_ACCESS_MIGRATION_ID},
+            ).first()
+            if already:
+                return False
+
+            tables = set(inspect(conn).get_table_names())
+            if "user" in tables:
+                columns = {c["name"] for c in inspect(conn).get_columns("user")}
+                if "permissions_json" not in columns:
+                    conn.execute(text(
+                        'ALTER TABLE "user" ADD COLUMN permissions_json TEXT NOT NULL DEFAULT \'[]\''
+                    ))
+                if "must_change_password" not in columns:
+                    conn.execute(text(
+                        'ALTER TABLE "user" ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT FALSE'
+                    ))
+                # Existing collaborator accounts fail closed and must replace
+                # the password originally communicated by the administrator.
+                conn.execute(text(
+                    'UPDATE "user" SET permissions_json=\'[]\', must_change_password=TRUE '
+                    "WHERE role='operator'"
+                ))
+
+            conn.execute(text(
+                "INSERT INTO aplsai_schema_migration (id, applied_at) VALUES (:id, :applied_at)"
+            ), {"id": OPERATOR_ACCESS_MIGRATION_ID, "applied_at": datetime.now(timezone.utc)})
         return True
     finally:
         engine.dispose()

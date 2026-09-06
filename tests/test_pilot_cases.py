@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -34,6 +35,7 @@ class PilotCasesTest(unittest.TestCase):
                 role="operator", name="Operatore Collaudo",
                 email="pilot-operator@example.com", phone="",
                 password_hash=generate_password_hash("PilotOperator12345", method="scrypt"),
+                permissions_json=json.dumps(["pilot_read", "pilot_manage"]),
             )
             app_module.db.session.add(operator)
             app_module.db.session.commit()

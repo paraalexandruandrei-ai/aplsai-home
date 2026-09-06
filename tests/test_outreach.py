@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -16,6 +17,7 @@ os.environ["ADMIN_PASSWORD"] = "OutreachAdmin12345"
 import app as app_module
 from app.operations import init_operations
 from app.rbac_runtime import install_runtime_rbac
+from app.staff_accounts import init_staff_accounts
 from app.opportunities import init_opportunities
 from app.outreach import init_outreach
 
@@ -28,6 +30,7 @@ class OutreachCheck(unittest.TestCase):
         cls.app.config.update(TESTING=True)
         init_operations(cls.app, app_module)
         install_runtime_rbac(cls.app, app_module)
+        init_staff_accounts(cls.app, app_module)
         init_opportunities(cls.app, app_module)
         init_outreach(cls.app, app_module)
         with cls.app.app_context():
@@ -42,6 +45,7 @@ class OutreachCheck(unittest.TestCase):
                     role="operator", name="Operatore Outreach",
                     email="outreach-operator@example.com", phone="",
                     password_hash=generate_password_hash("OutreachOperator12345", method="scrypt"),
+                    permissions_json=json.dumps(["opportunity_read", "opportunity_manage", "outreach_read", "outreach_manage"]),
                 ))
                 app_module.db.session.commit()
 

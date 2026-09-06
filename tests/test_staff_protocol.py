@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -16,6 +17,7 @@ os.environ["ADMIN_PASSWORD"] = "ProtocolAdmin12345"
 import app as app_module
 from app.operations import init_operations
 from app.rbac_runtime import install_runtime_rbac
+from app.staff_accounts import init_staff_accounts
 from app.staff_protocol import init_staff_protocol
 
 
@@ -26,6 +28,7 @@ class StaffProtocolCheck(unittest.TestCase):
         cls.app.config.update(TESTING=True)
         init_operations(cls.app, app_module)
         install_runtime_rbac(cls.app, app_module)
+        init_staff_accounts(cls.app, app_module)
         init_staff_protocol(cls.app, app_module)
         with cls.app.app_context():
             if not app_module.User.query.filter_by(email="protocol-admin@example.com").first():
@@ -37,6 +40,7 @@ class StaffProtocolCheck(unittest.TestCase):
                 app_module.db.session.add(app_module.User(
                     role="operator", name="Operatore Protocollo", email="protocol-operator@example.com",
                     phone="", password_hash=generate_password_hash("ProtocolOperator12345", method="scrypt"),
+                    permissions_json=json.dumps(["protocol_read", "property_create"]),
                 ))
             app_module.db.session.commit()
 

@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -89,6 +90,13 @@ class OperatorAccountsCheck(unittest.TestCase):
                         active=True,
                         password_hash=generate_password_hash("RoleTest12345", method="scrypt"),
                     ))
+            app_module.db.session.commit()
+            existing = app_module.User.query.filter_by(email="existing-operator@example.com").first()
+            toggle = app_module.User.query.filter_by(email="toggle-operator@example.com").first()
+            existing.permissions_json = json.dumps(["portfolio_read", "capacity_read"])
+            toggle.permissions_json = json.dumps(["dashboard_full"])
+            existing.must_change_password = False
+            toggle.must_change_password = False
             app_module.db.session.commit()
             protocol = cls.app.extensions["aplsai_staff_protocol"]
             StaffRule = protocol["StaffRule"]
@@ -237,6 +245,50 @@ class OperatorAccountsCheck(unittest.TestCase):
             "password": "debole",
         })
         self.assertEqual(r.status_code, 400)
+
+    def test_operator_permissions_and_first_login_password_flow(self):
+        admin = self.login_admin()
+        created = admin.post("/api/admin/operators", json={
+            "name": "Accesso Limitato",
+            "email": "limited-access@example.com",
+            "password": "Temporary12345",
+        })
+        self.assertEqual(created.status_code, 201, created.get_json())
+        operator_id = created.get_json()["operator"]["id"]
+        self.assertEqual(created.get_json()["operator"]["permissions"], [])
+        self.assertTrue(created.get_json()["operator"]["must_change_password"])
+
+        operator = self.app.test_client()
+        login = operator.post("/api/staff/login", json={
+            "email": "limited-access@example.com", "password": "Temporary12345",
+        })
+        self.assertEqual(login.status_code, 200, login.get_json())
+        self.assertTrue(login.get_json()["must_change_password"])
+        blocked = operator.get("/api/staff/dashboard")
+        self.assertEqual(blocked.status_code, 403, blocked.get_json())
+        self.assertEqual(blocked.get_json()["code"], "PASSWORD_CHANGE_REQUIRED")
+
+        changed = operator.post("/api/staff/password", json={
+            "current_password": "Temporary12345", "new_password": "Permanent12345",
+        })
+        self.assertEqual(changed.status_code, 200, changed.get_json())
+        self.assertEqual(operator.get("/api/staff/dashboard").status_code, 403)
+
+        granted = admin.patch(f"/api/admin/operators/{operator_id}/access", json={
+            "permissions": ["dashboard_full"],
+        })
+        self.assertEqual(granted.status_code, 200, granted.get_json())
+        self.assertEqual(operator.get("/api/staff/dashboard").status_code, 200)
+        self.assertEqual(operator.get("/api/staff/portfolio").status_code, 403)
+
+        operator.post("/api/logout", json={})
+        for _ in range(2):
+            repeated = self.app.test_client()
+            relogin = repeated.post("/api/staff/login", json={
+                "email": "limited-access@example.com", "password": "Permanent12345",
+            })
+            self.assertEqual(relogin.status_code, 200, relogin.get_json())
+            self.assertEqual(repeated.get("/api/staff/dashboard").status_code, 200)
 
     def test_creation_is_audited(self):
         admin = self.login_admin()

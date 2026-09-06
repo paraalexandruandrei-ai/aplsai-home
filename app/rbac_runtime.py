@@ -14,6 +14,10 @@ ROUTE_PERMISSIONS = {
     "/api/staff/opportunities": "opportunity_manage",
     "/api/staff/outreach": "outreach_read",
     "/api/staff/protocol": "protocol_read",
+    "/api/staff/scenarios": "scenario_manage",
+    "/api/staff/feasibility": "feasibility_manage",
+    "/api/staff/investors": "investor_read",
+    "/api/staff/cashflow": "cashflow_manage",
     "/api/staff/tasks": "task_read",
     "/api/staff/pilot-cases": "pilot_read",
     "/api/staff/transactions": "transaction_read",
@@ -29,6 +33,7 @@ ROUTE_PERMISSIONS = {
 }
 
 PREFIX_PERMISSIONS = {
+    "/api/staff/properties/": "property_update",
     "/api/staff/match/": "matching_run",
     "/api/staff/portfolio/": "portfolio_manage",
     "/api/staff/capacity/": "capacity_manage",
@@ -57,6 +62,11 @@ PREFIX_PERMISSIONS = {
     "/api/staff/supplier-contracts/": "supplier_contract_manage",
     "/api/staff/contract-milestones/": "supplier_contract_manage",
     "/api/staff/contract-documents/": "supplier_contract_manage",
+    "/api/staff/scenarios/": "scenario_manage",
+    "/api/staff/feasibility/": "feasibility_manage",
+    "/api/staff/investors/": "investor_manage",
+    "/api/staff/investor-": "investor_manage",
+    "/api/staff/cashflow/": "cashflow_manage",
 }
 
 
@@ -94,6 +104,11 @@ def install_runtime_rbac(app, app_module):
                 return value
         return None
 
+    def granted_permissions(user):
+        ext = app.extensions.get("aplsai_staff_accounts") or {}
+        resolver = ext.get("operator_permissions")
+        return set(resolver(user)) if resolver else set()
+
     @app.before_request
     def operator_staff_login_gate():
         if request.path != "/api/staff/login" or request.method != "POST":
@@ -117,7 +132,11 @@ def install_runtime_rbac(app, app_module):
 
         app_module.clear_login_failures(key)
         app_module.establish_session(u.id)
-        return jsonify(ok=True, role="operator")
+        return jsonify(
+            ok=True,
+            role="operator",
+            must_change_password=bool(getattr(u, "must_change_password", False)),
+        )
 
     @app.before_request
     def granular_staff_permission_gate():
@@ -126,11 +145,6 @@ def install_runtime_rbac(app, app_module):
             return None
 
         if path in {"/api/staff/me", "/api/staff/password"}:
-            return None
-
-        if path == "/api/staff/operations" or path == "/api/staff/audit" or (
-            path.startswith("/api/staff/client/") and path.endswith("/operation")
-        ):
             return None
 
         if path == "/api/staff/login":
@@ -152,8 +166,30 @@ def install_runtime_rbac(app, app_module):
         if canonical != "operator":
             return None
 
+        if bool(getattr(u, "must_change_password", False)):
+            return jsonify(
+                error="Devi cambiare la password temporanea prima di continuare.",
+                code="PASSWORD_CHANGE_REQUIRED",
+            ), 403
+
+        grants = granted_permissions(u)
+        if path == "/api/staff/dashboard":
+            bootstrap = {
+                "dashboard_full", "client_read_all", "property_create", "property_update",
+                "matching_run", "scenario_manage", "feasibility_manage", "transaction_read",
+                "document_share",
+            }
+            if grants.intersection(bootstrap):
+                return None
+        if path == "/api/staff/operations":
+            return None if "client_read_all" in grants else (jsonify(error="Permesso insufficiente."), 403)
+        if path == "/api/staff/audit":
+            return jsonify(error="Permesso insufficiente."), 403
+        if path.startswith("/api/staff/client/") and path.endswith("/operation"):
+            return None if "client_update_operation" in grants else (jsonify(error="Permesso insufficiente."), 403)
+
         permission = required_permission_for_path(path)
-        if not permission or not has_permission(u.role, permission):
+        if not permission or permission not in grants:
             return jsonify(error="Permesso insufficiente."), 403
         return None
 

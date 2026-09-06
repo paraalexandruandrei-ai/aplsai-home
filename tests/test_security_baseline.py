@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -14,6 +15,7 @@ os.environ["ADMIN_PASSWORD"] = "AdminTest12345"
 import app as app_module
 from app.operations import init_operations
 from app.rbac_runtime import install_runtime_rbac
+from app.staff_accounts import init_staff_accounts
 
 PROFILE = {
     "zone": {"main": "Roma", "km": 20},
@@ -43,6 +45,7 @@ class SecurityBaselineTest(unittest.TestCase):
         cls.app.config.update(TESTING=True)
         init_operations(cls.app, app_module)
         install_runtime_rbac(cls.app, app_module)
+        init_staff_accounts(cls.app, app_module)
 
         with cls.app.app_context():
             if not app_module.User.query.filter_by(email="operator-real@example.com").first():
@@ -54,6 +57,12 @@ class SecurityBaselineTest(unittest.TestCase):
                     password_hash=generate_password_hash("Operator12345", method="scrypt"),
                 ))
                 app_module.db.session.commit()
+            operator = app_module.User.query.filter_by(email="operator-real@example.com").first()
+            operator.permissions_json = json.dumps([
+                "dashboard_full", "client_read_all", "client_update_operation",
+            ])
+            operator.must_change_password = False
+            app_module.db.session.commit()
 
     @classmethod
     def tearDownClass(cls):
@@ -88,6 +97,10 @@ class SecurityBaselineTest(unittest.TestCase):
                     password_hash=generate_password_hash("RoleTest12345", method="scrypt")
                 )
                 app_module.db.session.add(u)
+                app_module.db.session.commit()
+            if role == "operator":
+                u.permissions_json = json.dumps(["client_read_all", "client_update_operation"])
+                u.must_change_password = False
                 app_module.db.session.commit()
             uid = u.id
         c = self.app.test_client()
@@ -191,7 +204,7 @@ class SecurityBaselineTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.get_json())
         self.assertEqual(r.get_json().get("role"), "operator")
         self.assertEqual(c.get("/api/staff/dashboard").status_code, 200)
-        self.assertEqual(c.get("/api/staff/audit").status_code, 401)
+        self.assertEqual(c.get("/api/staff/audit").status_code, 403)
 
     def test_operator_wrong_password_is_rejected(self):
         c = self.app.test_client()
@@ -204,7 +217,7 @@ class SecurityBaselineTest(unittest.TestCase):
     def test_operator_can_read_operations_but_not_audit(self):
         operator = self.make_role_session("operator", "operator-test@example.com")
         self.assertEqual(operator.get("/api/staff/operations").status_code, 200)
-        self.assertEqual(operator.get("/api/staff/audit").status_code, 401)
+        self.assertEqual(operator.get("/api/staff/audit").status_code, 403)
 
     def test_operator_can_update_client_operation(self):
         registrar = self.app.test_client()

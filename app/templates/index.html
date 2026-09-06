@@ -701,7 +701,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
           <button class="primary full" id="operatorCreateBtn" onclick="createOperator()">Aggiungi collaboratore</button>
           <p id="operatorCreateMsg" class="hint" aria-live="polite"></p>
         </article>
-        <article class="area-card"><h3>Collaboratori</h3><p class="hint">La disattivazione blocca l’accesso ma conserva lo storico.</p><div id="operatorList">Caricamento…</div></article>
+        <article class="area-card"><h3>Collaboratori</h3><p class="hint">Ogni collaboratore parte senza accessi. L’Admin sceglie le sezioni abilitate; la password temporanea deve essere cambiata al primo accesso.</p><div id="operatorList">Caricamento…</div></article>
       </div></div>
       <div id="staff-export" class="staff-panel" style="display:none"><div class="area-grid">
         <article class="area-card"><h3>Pacchetto operativo Excel</h3>
@@ -713,6 +713,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
       <div id="staff-security" class="staff-panel" style="display:none"><div class="area-grid">
         <article class="area-card"><h3>Cambia password</h3>
           <p class="hint" id="staffIdentity"></p>
+          <p class="sum" id="staffPasswordRequired" style="display:none"><b>Primo accesso</b>Per proteggere l’account, sostituisci adesso la password temporanea. Dopo potrai aprire le sezioni autorizzate dall’Admin.</p>
           <label>Password attuale</label><input id="currentStaffPassword" type="password" autocomplete="current-password">
           <label>Nuova password</label><input id="newStaffPassword" type="password" autocomplete="new-password" minlength="10" placeholder="Almeno 10 caratteri, lettere e numeri">
           <label>Conferma nuova password</label><input id="confirmStaffPassword" type="password" autocomplete="new-password">
@@ -940,7 +941,7 @@ function staffLogin(){
 }
 function renderStaffArea(){if(loadStore("aplsai_staff_session",null)){document.getElementById("staffLoginBox").style.display="none";document.getElementById("staffDashboard").style.display="block";renderStaff()}else{document.getElementById("staffLoginBox").style.display="grid";document.getElementById("staffDashboard").style.display="none"}}
 function staffLogout(){localStorage.removeItem("aplsai_staff_session");renderStaffArea()}
-function staffTab(id,b){document.querySelectorAll(".staff-tab").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".staff-panel").forEach(x=>x.style.display="none");if(b)b.classList.add("active");const panel=document.getElementById("staff-"+id);if(panel)panel.style.display="block";const quick=document.getElementById('staffQuickNav');if(quick)quick.value=id}
+function staffTab(id,b){if(window.__staffRole==='operator'&&typeof staffAreaAllowed==='function'&&!staffAreaAllowed(id))return;document.querySelectorAll(".staff-tab").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".staff-panel").forEach(x=>x.style.display="none");if(b)b.classList.add("active");const panel=document.getElementById("staff-"+id);if(panel)panel.style.display="block";const quick=document.getElementById('staffQuickNav');if(quick)quick.value=id}
 function staffQuickNav(id){if(!id)return;const button=[...document.querySelectorAll('.staff-tab')].find(x=>(x.getAttribute('onclick')||'').includes(`'${id}'`));staffTab(id,button);const panel=document.getElementById('staff-'+id);if(panel)panel.scrollIntoView({behavior:'smooth',block:'start'});}
 function clientPriority(p){let age=Math.floor((Date.now()-new Date(p.createdAt))/86400000);let v=70+(p.preferredStrategy?8:0)+Math.min(age,120)/12;return Math.min(100,Math.round(v))}
 function renderStaff(){
@@ -1198,19 +1199,19 @@ staffLogin=async function(){
         password:document.getElementById("staffPassword").value
       })
     });
+    await loadStaffAccountTools();
     document.getElementById("staffLoginBox").style.display="none";
     document.getElementById("staffDashboard").style.display="block";
-    await renderStaffServer();
-    await loadStaffAccountTools();
+    await loadPermittedStaffData();
   }catch(e){ alert(e.message); }
 };
 
 renderStaffArea=async function(){
   try{
-    await renderStaffServer();
+    await loadStaffAccountTools();
     document.getElementById("staffLoginBox").style.display="none";
     document.getElementById("staffDashboard").style.display="block";
-    await loadStaffAccountTools();
+    await loadPermittedStaffData();
   }catch{
     document.getElementById("staffLoginBox").style.display="grid";
     document.getElementById("staffDashboard").style.display="none";
@@ -1223,16 +1224,33 @@ function escapeHtml(value){
 
 function operatorRowHtml(op){
   const active=!!op.active;
-  return `<div class="list-row"><b>${escapeHtml(op.name)}</b><br><small>${escapeHtml(op.email)}</small><br><span class="score" style="margin-top:8px;display:inline-block">${active?'Attivo':'Disattivato'}</span><button class="secondary" style="margin-top:10px;width:100%;min-height:44px" onclick="setOperatorActive(${Number(op.id)},${!active})">${active?'Disattiva accesso':'Riattiva accesso'}</button></div>`;
+  const granted=new Set(op.permissions||[]);
+  const areas=(window.__permissionAreas||[]).map(area=>`<label style="display:flex;gap:8px;align-items:flex-start;margin:8px 0"><input type="checkbox" data-operator-permission="${Number(op.id)}" value="${escapeHtml(area.id)}" ${area.permissions.some(p=>granted.has(p))?'checked':''}> <span>${escapeHtml(area.label)}</span></label>`).join('');
+  return `<div class="list-row"><b>${escapeHtml(op.name)}</b><br><small>${escapeHtml(op.email)}</small><br><span class="score" style="margin-top:8px;display:inline-block">${active?'Attivo':'Disattivato'}</span>${op.must_change_password?'<span class="score" style="margin:8px 0 0 6px;display:inline-block">Cambio password richiesto</span>':''}<details style="margin-top:12px"><summary><b>Accessi consentiti</b></summary><div style="margin:10px 0">${areas||'<p>Nessuna sezione disponibile.</p>'}</div><button class="primary full" onclick="saveOperatorAccess(${Number(op.id)})">Salva accessi</button></details><label style="margin-top:14px">Nuova password temporanea</label><input id="operatorResetPassword${Number(op.id)}" type="password" minlength="10" autocomplete="new-password" placeholder="Almeno 10 caratteri, lettere e numeri"><button class="secondary full" onclick="resetOperatorPassword(${Number(op.id)})">Reimposta password</button><button class="secondary" style="margin-top:10px;width:100%;min-height:44px" onclick="setOperatorActive(${Number(op.id)},${!active})">${active?'Disattiva accesso':'Riattiva accesso'}</button></div>`;
+}
+
+const STAFF_SECTION_FALLBACK={today:'dashboard_full',tasks:'task_read',clients:'client_read_all',opportunities:'opportunity_read',outreach:'outreach_read',properties:'property_create',scenarios:'scenario_manage',quotes:'quote_read',procurements:'procurement_read',contracts:'supplier_contract_read',feasibility:'feasibility_manage',investors:'investor_read',cashflow:'cashflow_manage',portfolio:'portfolio_read',capacity:'capacity_read',partners:'partner_registry_read',matching:'matching_run',launch:'launch_read',worksites:'worksite_read',deliveries:'delivery_read',deals:'transaction_read',documents:'document_share',protocol:'protocol_read',pilot:'pilot_read'};
+function staffAreaAllowed(id){return window.__staffRole==='admin'||id==='security'||(window.__staffAllowedAreas||new Set()).has(id);}
+function applyStaffAccessVisibility(){
+  document.querySelectorAll('.staff-tab').forEach(button=>{const match=(button.getAttribute('onclick')||'').match(/staffTab\('([^']+)'/);if(match)button.style.display=staffAreaAllowed(match[1])?'':'none';});
+  document.querySelectorAll('#staffQuickNav option').forEach(option=>{if(option.value)option.hidden=!staffAreaAllowed(option.value);});
+  const stats=document.querySelector('#staffDashboard > .stats-grid');if(stats)stats.style.display=staffAreaAllowed('today')?'':'none';
+  if(window.__staffMustChangePassword){staffTab('security',[...document.querySelectorAll('.staff-tab')].find(x=>(x.getAttribute('onclick')||'').includes("'security'")));return;}
+  const visible=[...document.querySelectorAll('.staff-tab')].find(x=>x.style.display!=='none');
+  const active=[...document.querySelectorAll('.staff-tab')].find(x=>x.classList.contains('active')&&x.style.display!=='none');
+  if(!active&&visible)visible.click();
 }
 
 async function loadStaffAccountTools(){
-  try{
     const me=await api('/api/staff/me');
     window.__staffRole=me.staff.role;
     window.__staffIdentity=me.staff;
+    window.__staffPermissions=new Set(me.staff.permissions||[]);
+    window.__staffMustChangePassword=!!me.staff.must_change_password;
+    window.__staffAllowedAreas=new Set(Object.entries(STAFF_SECTION_FALLBACK).filter(([,permission])=>window.__staffPermissions.has(permission)).map(([id])=>id));
     const identity=document.getElementById('staffIdentity');
     if(identity)identity.textContent=`Accesso: ${me.staff.email} · ${me.staff.role==='admin'?'Admin':'Operatore'}`;
+    const required=document.getElementById('staffPasswordRequired');if(required)required.style.display=window.__staffMustChangePassword?'block':'none';
     const tab=document.getElementById('staffCollaboratorsTab');
     const panel=document.getElementById('staff-collaborators');
     const exportTab=document.getElementById('staffExportTab');
@@ -1250,8 +1268,7 @@ async function loadStaffAccountTools(){
       if(investorsTab)investorsTab.style.display='none';
       if(investorsPanel)investorsPanel.style.display='none';
       if(investorsQuick)investorsQuick.style.display='none';
-      await loadWorkTasks();
-      await loadStaffProtocol();
+      applyStaffAccessVisibility();
       return;
     }
     if(tab)tab.style.display='';
@@ -1260,9 +1277,15 @@ async function loadStaffAccountTools(){
     if(investorsQuick)investorsQuick.style.display='';
     if(typeof renderClientRegistry==='function')renderClientRegistry();
     await loadOperators();
-    await loadWorkTasks();
-    await loadStaffProtocol();
-  }catch(_){}
+    applyStaffAccessVisibility();
+}
+
+async function loadPermittedStaffData(){
+  if(window.__staffMustChangePassword)return;
+  const allowed=id=>staffAreaAllowed(id);
+  if(['today','clients','properties','matching','scenarios','feasibility','deals','documents'].some(allowed))await renderStaffServer();
+  const loaders={tasks:'loadWorkTasks',opportunities:'loadOpportunities',outreach:'loadOutreach',quotes:'loadQuotes',procurements:'loadProcurements',contracts:'loadSupplierContracts',investors:'loadInvestors',cashflow:'loadCashflow',portfolio:'loadPortfolio',capacity:'loadCapacity',partners:'loadPartners',launch:'loadLaunchControls',worksites:'loadWorksites',deliveries:'loadDeliveries',protocol:'loadStaffProtocol',pilot:'loadPilotCases'};
+  for(const [area,name] of Object.entries(loaders)){if(allowed(area)&&typeof window[name]==='function'){try{await window[name]();}catch(_){}}}
 }
 
 function downloadOperationalExport(){
@@ -1274,10 +1297,27 @@ async function loadOperators(){
   if(!box)return;
   try{
     const d=await api('/api/admin/operators');
+    window.__permissionAreas=d.access_areas||[];
     window.__operators=d.operators||[];
     box.innerHTML=(d.operators||[]).map(operatorRowHtml).join('')||'<p>Nessun collaboratore.</p>';
     const select=document.getElementById('taskAssignee');if(select)select.innerHTML='<option value="">Seleziona collaboratore</option>'+(d.operators||[]).filter(x=>x.active).map(x=>`<option value="${Number(x.id)}">${escapeHtml(x.name)}</option>`).join('');
   }catch(e){box.textContent=e.message||'Impossibile caricare i collaboratori.';}
+}
+
+async function saveOperatorAccess(id){
+  try{
+    const chosen=[...document.querySelectorAll(`[data-operator-permission="${Number(id)}"]:checked`)].map(x=>x.value);
+    const permissions=(window.__permissionAreas||[]).filter(area=>chosen.includes(area.id)).flatMap(area=>area.permissions);
+    await api('/api/admin/operators/'+encodeURIComponent(id)+'/access',{method:'PATCH',body:JSON.stringify({permissions})});
+    alert('Accessi del collaboratore aggiornati.');await loadOperators();
+  }catch(e){alert(e.message||'Impossibile salvare gli accessi.');}
+}
+
+async function resetOperatorPassword(id){
+  const input=document.getElementById('operatorResetPassword'+Number(id));const password=input?.value||'';
+  if(password.length<10)return alert('Inserisci una password temporanea di almeno 10 caratteri, con lettere e numeri.');
+  if(!confirm('Reimpostare la password? Il collaboratore dovrà cambiarla al prossimo accesso.'))return;
+  try{await api('/api/admin/operators/'+encodeURIComponent(id)+'/reset-password',{method:'POST',body:JSON.stringify({password})});if(input)input.value='';alert('Password temporanea reimpostata.');await loadOperators();}catch(e){alert(e.message||'Impossibile reimpostare la password.');}
 }
 
 async function createOperator(){
@@ -1312,6 +1352,9 @@ async function changeStaffPassword(){
     await api('/api/staff/password',{method:'POST',body:JSON.stringify({current_password:current,new_password:next})});
     ['currentStaffPassword','newStaffPassword','confirmStaffPassword'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     if(msg)msg.textContent='Password aggiornata correttamente.';
+    window.__staffMustChangePassword=false;
+    await loadStaffAccountTools();
+    await loadPermittedStaffData();
   }catch(e){if(msg)msg.textContent=e.message||'Impossibile aggiornare la password.';}
 }
 

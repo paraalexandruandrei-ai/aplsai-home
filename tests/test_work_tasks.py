@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -17,6 +18,7 @@ os.environ["ADMIN_PASSWORD"] = "TaskAdmin12345"
 import app as app_module
 from app.operations import init_operations
 from app.rbac_runtime import install_runtime_rbac
+from app.staff_accounts import init_staff_accounts
 from app.staff_protocol import init_staff_protocol
 from app.work_tasks import init_work_tasks
 
@@ -28,6 +30,7 @@ class WorkTaskCheck(unittest.TestCase):
         cls.app.config.update(TESTING=True)
         init_operations(cls.app, app_module)
         install_runtime_rbac(cls.app, app_module)
+        init_staff_accounts(cls.app, app_module)
         init_staff_protocol(cls.app, app_module)
         init_work_tasks(cls.app, app_module)
         with cls.app.app_context():
@@ -39,6 +42,7 @@ class WorkTaskCheck(unittest.TestCase):
                 app_module.db.session.add(app_module.User(
                     role="operator", name=name, email=email, phone="",
                     password_hash=generate_password_hash("TaskOperator12345", method="scrypt"),
+                    permissions_json=json.dumps(["task_read"]),
                 ))
             app_module.db.session.commit()
             ext = cls.app.extensions["aplsai_staff_protocol"]
