@@ -25,6 +25,7 @@ ROUTE_PERMISSIONS = {
     "/api/staff/deliveries": "delivery_read",
     "/api/staff/partners": "partner_registry_read",
     "/api/staff/procurements": "procurement_read",
+    "/api/staff/supplier-contracts": "supplier_contract_read",
 }
 
 PREFIX_PERMISSIONS = {
@@ -53,6 +54,9 @@ PREFIX_PERMISSIONS = {
     "/api/staff/partner-assignments/": "partner_registry_manage",
     "/api/staff/procurements/": "procurement_manage",
     "/api/staff/procurement-offers/": "procurement_manage",
+    "/api/staff/supplier-contracts/": "supplier_contract_manage",
+    "/api/staff/contract-milestones/": "supplier_contract_manage",
+    "/api/staff/contract-documents/": "supplier_contract_manage",
 }
 
 

@@ -647,6 +647,65 @@ def init_operational_export(app, app_module):
             for row in procurement_events
         ])
 
+        contract_ext = app.extensions.get("aplsai_supplier_contracts") or {}
+        SupplierContract = contract_ext.get("SupplierContract")
+        ContractMilestone = contract_ext.get("ContractMilestone")
+        ContractDocument = contract_ext.get("ContractDocument")
+        ContractVariation = contract_ext.get("ContractVariation")
+        ContractEvent = contract_ext.get("ContractEvent")
+        contract_serializer = contract_ext.get("contract_dict")
+        milestone_serializer = contract_ext.get("milestone_dict")
+        supplier_contracts = SupplierContract.query.order_by(SupplierContract.id.asc()).all() if SupplierContract else []
+        contract_names = {row.id: row.title for row in supplier_contracts}
+        _sheet(wb, "Contratti fornitori", [
+            "ID", "Codice", "Titolo", "ID confronto", "ID offerta", "ID partner", "Partner", "Tipo",
+            "Costo offerta 24m", "Riferimento contratto", "Evidenza firma", "Requisiti congelati", "Casi Oro",
+            "Fonti/criteri firmati", "Verifica professionale", "Cessione IP", "Componenti preesistenti",
+            "Controllo repository", "Controllo cloud", "Controllo credenziali", "Controllo dati", "Piano uscita",
+            "Stato", "Condizioni mancanti", "Totale milestone", "Varianti approvate", "Totale autorizzato",
+            "Totale pagato", "Nota avvio", "Avviato il", "Nota chiusura", "Chiuso il", "Versione",
+        ], [(
+            row.id, row.code, row.title, row.procurement_case_id, row.offer_id, row.partner_id, data.get("partner_name"),
+            data.get("case_type"), data.get("offer_tco_24m"), row.contract_ref, row.signed_evidence,
+            row.requirements_frozen_ref, row.golden_cases_ref, row.sources_criteria_signed_ref,
+            row.professional_verification_ref, row.ip_assignment_ref, row.preexisting_components_ref,
+            row.repository_control_ref, row.cloud_control_ref, row.credentials_control_ref, row.data_control_ref,
+            row.exit_plan_ref, row.status, _join(data.get("start_missing", [])), data.get("planned_total", 0),
+            data.get("approved_variations_total", 0), data.get("authorized_contract_total", 0), data.get("paid_total", 0),
+            row.start_note, _iso(row.started_at), row.closing_note, _iso(row.closed_at), row.version,
+        ) for row in supplier_contracts for data in [contract_serializer(row) if contract_serializer else {}]])
+        contract_milestones = ContractMilestone.query.order_by(ContractMilestone.id.asc()).all() if ContractMilestone else []
+        _sheet(wb, "Milestone contratti", [
+            "ID", "ID contratto", "Contratto", "Codice", "Titolo", "Modulo/attività", "Risultato", "Criteri accettazione",
+            "Dipendenze", "Importo previsto", "Varianti approvate", "Limite autorizzabile", "Scadenza", "Stato",
+            "Evidenza", "Esito collaudo", "Difetti critici", "Difetti residui", "Costo a finire", "Verbale accettazione",
+            "Accettata il", "Stato pagamento", "Importo richiesto", "Evidenza pagamento", "Importo pagato",
+            "Riferimento pagamento", "Pagato il",
+        ], [(
+            row.id, row.contract_id, contract_names.get(row.contract_id, ""), row.code, row.title, row.module_scope,
+            row.deliverable, row.acceptance_criteria, row.dependencies, row.planned_amount, data.get("approved_extra", 0),
+            data.get("authorized_limit", 0), _iso(row.due_at), row.status, row.evidence_ref, row.test_result,
+            row.critical_defects, row.residual_defects, row.cost_to_complete, row.acceptance_note, _iso(row.accepted_at),
+            row.payment_status, row.requested_amount, row.payment_evidence, row.paid_amount, row.paid_ref, _iso(row.paid_at),
+        ) for row in contract_milestones for data in [milestone_serializer(row) if milestone_serializer else {}]])
+        contract_documents = ContractDocument.query.order_by(ContractDocument.id.asc()).all() if ContractDocument else []
+        _sheet(wb, "Documenti contratti", ["ID", "ID contratto", "Contratto", "Codice", "Documento", "Stato", "Evidenza", "Nota", "ID verificatore", "Verificato il"], [
+            (row.id, row.contract_id, contract_names.get(row.contract_id, ""), row.code, row.title, row.status,
+             row.evidence_ref, row.note, row.verified_by_user_id, _iso(row.verified_at)) for row in contract_documents
+        ])
+        contract_variations = ContractVariation.query.order_by(ContractVariation.id.asc()).all() if ContractVariation else []
+        _sheet(wb, "Varianti contratti", [
+            "ID", "ID contratto", "Contratto", "ID milestone", "Tipo", "Descrizione", "Motivo", "Impatto costo",
+            "Ritardo giorni", "Evidenza", "Stato", "Motivazione decisione", "ID decisore", "Decisa il",
+        ], [(row.id, row.contract_id, contract_names.get(row.contract_id, ""), row.milestone_id, row.change_type,
+             row.description, row.reason, row.cost_impact, row.delay_days, row.evidence_ref, row.status,
+             row.decision_note, row.decided_by_user_id, _iso(row.decided_at)) for row in contract_variations])
+        contract_events = ContractEvent.query.order_by(ContractEvent.id.asc()).all() if ContractEvent else []
+        _sheet(wb, "Storico contratti", ["ID", "ID contratto", "Oggetto", "ID oggetto", "ID autore", "Azione", "Dettaglio", "Data"], [
+            (row.id, row.contract_id, row.object_type, row.object_id, row.actor_user_id, row.action, row.detail, _iso(row.created_at))
+            for row in contract_events
+        ])
+
         portfolio_ext = app.extensions.get("aplsai_portfolio") or {}
         portfolio_serializer = portfolio_ext.get("portfolio_dict")
         portfolio = portfolio_serializer(include_history=True) if portfolio_serializer else {

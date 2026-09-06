@@ -40,6 +40,7 @@ from app.worksites import init_worksites
 from app.deliveries import init_deliveries
 from app.partners import init_partners
 from app.procurement import init_procurement
+from app.supplier_contracts import init_supplier_contracts
 
 
 class OperatorAccountsCheck(unittest.TestCase):
@@ -71,6 +72,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         init_deliveries(cls.app, app_module)
         init_partners(cls.app, app_module)
         init_procurement(cls.app, app_module)
+        init_supplier_contracts(cls.app, app_module)
 
         with cls.app.app_context():
             for role, email in [
@@ -376,6 +378,11 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertIn("Confronti offerte", workbook.sheetnames)
         self.assertIn("Offerte fornitori", workbook.sheetnames)
         self.assertIn("Storico confronti", workbook.sheetnames)
+        self.assertIn("Contratti fornitori", workbook.sheetnames)
+        self.assertIn("Milestone contratti", workbook.sheetnames)
+        self.assertIn("Documenti contratti", workbook.sheetnames)
+        self.assertIn("Varianti contratti", workbook.sheetnames)
+        self.assertIn("Storico contratti", workbook.sheetnames)
         self.assertIn("Portafoglio", workbook.sheetnames)
         self.assertIn("Stress portafoglio", workbook.sheetnames)
         self.assertIn("Portafoglio mensile", workbook.sheetnames)
