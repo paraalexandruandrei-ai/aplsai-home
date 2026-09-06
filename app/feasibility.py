@@ -8,8 +8,9 @@ from . import db
 from .rbac import has_permission
 
 
-ENGINE_VERSION = "APL-FEASIBILITY-1.0"
+ENGINE_VERSION = "APL-FEASIBILITY-1.1"
 ANALYSIS_STATUSES = {"Bozza", "Da verificare", "Validata", "Approvata", "Respinta"}
+FINAL_DECISIONS = {"GO", "NO-GO", "PROCEDERE CON CONDIZIONI"}
 CASE_KEYS = ("base", "prudente", "stress", "doppio_stress")
 CASE_LABELS = {
     "base": "Base", "prudente": "Prudente",
@@ -61,10 +62,23 @@ def init_feasibility(app, app_module):
                 "created_at": self.created_at.isoformat() if self.created_at else None,
             }
 
+    class FeasibilityDecision(db.Model):
+        __tablename__ = "feasibility_decision"
+        id = db.Column(db.Integer, primary_key=True)
+        analysis_id = db.Column(db.Integer, db.ForeignKey("feasibility_analysis.id"), nullable=False, index=True)
+        decision = db.Column(db.String(40), nullable=False)
+        conditions = db.Column(db.Text, nullable=False, default="")
+        evidence_ref = db.Column(db.String(500), nullable=False)
+        residual_defects = db.Column(db.Text, nullable=False, default="")
+        cost_to_complete = db.Column(db.Float, nullable=False, default=0)
+        decided_by_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+        analysis_version = db.Column(db.Integer, nullable=False)
+        created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=app_module.utcnow)
+
     with app.app_context():
         db.create_all()
 
-    def staff_user():
+    def staff_user(permission="feasibility_manage"):
         uid = session.get("uid")
         actor = db.session.get(app_module.User, uid) if uid else None
         if not actor:
@@ -72,7 +86,7 @@ def init_feasibility(app, app_module):
         if getattr(actor, "active", True) is False:
             session.clear()
             return None, (jsonify(error="Account disattivato."), 401)
-        if not has_permission(actor.role, "feasibility_manage"):
+        if not has_permission(actor.role, permission):
             return None, (jsonify(error="Permesso insufficiente."), 403)
         return actor, None
 
@@ -95,6 +109,25 @@ def init_feasibility(app, app_module):
         totals = (data or {}).get("totals") or {}
         item_cost = float(totals.get("items_max") or 0)
         missing = list(totals.get("missing_categories") or [])
+        quote_basis = {"linked": False, "applied": False, "verified": 0, "total": 0, "missing_codes": []}
+        quote_ext = app.extensions.get("aplsai_quotes") or {}
+        pilot_ext = app.extensions.get("aplsai_pilot_cases") or {}
+        QuoteRequest, PilotCase = quote_ext.get("QuoteRequest"), pilot_ext.get("PilotCase")
+        pilot = PilotCase.query.filter_by(code="CO 01", feasibility_id=analysis.id, property_id=analysis.property_id).first() if QuoteRequest and PilotCase else None
+        if pilot:
+            quotes = QuoteRequest.query.filter_by(pilot_case_id=pilot.id, property_id=analysis.property_id).all()
+            verified = [q for q in quotes if q.verification_status == "Verificata" and q.offered_total is not None]
+            required = {f"RP-{number:02d}" for number in range(1, 9)}
+            verified_codes = {q.code for q in verified}
+            quote_basis = {"linked": True, "applied": required == verified_codes, "verified": len(verified_codes),
+                           "total": round(sum(float(q.offered_total or 0) for q in verified), 2),
+                           "missing_codes": sorted(required - verified_codes)}
+            if quote_basis["applied"]:
+                purchase = float(next(q.offered_total for q in verified if q.code == "RP-01"))
+                item_cost = sum(float(q.offered_total or 0) for q in verified if q.code != "RP-01")
+                missing = []
+            else:
+                missing.append("Preventivi CO 01 verificati: " + ", ".join(quote_basis["missing_codes"]))
         assumptions = json.loads(analysis.assumptions_json)
         cases = []
         for key in CASE_KEYS:
@@ -140,10 +173,10 @@ def init_feasibility(app, app_module):
         else:
             decision = "GO"
         result = {
-            "engine_version": ENGINE_VERSION, "decision": decision,
+            "engine_version": ENGINE_VERSION, "decision": decision, "economic_decision": decision,
             "known_cost_base": round(purchase + item_cost, 2),
             "purchase_price": purchase, "scenario_item_cost_max": round(item_cost, 2),
-            "missing_categories": missing, "risk_budget": analysis.risk_budget,
+            "missing_categories": missing, "risk_budget": analysis.risk_budget, "quote_basis": quote_basis,
             "cases": cases,
             "warnings": (["Il costo totale è parziale: completare le categorie mancanti."] if missing else [])
                 + ["Il fabbisogno di cassa è una stima conservativa prima dell’incasso finale."]
@@ -154,6 +187,11 @@ def init_feasibility(app, app_module):
             coverage = investor_ext.get("coverage_for_analysis")
             if coverage:
                 result["financial_coverage"] = coverage(analysis)
+                if result["economic_decision"] not in {"DATI INCOMPLETI", "NO-GO / RISTRUTTURARE"}:
+                    if coverage.get("remaining_to_cover", 0) > 0.01:
+                        result["decision"] = "PROCEDERE CON CONDIZIONI – COPERTURA DA COMPLETARE"
+                    elif coverage.get("decision") != "ESEGUIBILE":
+                        result["decision"] = "PROCEDERE CON CONDIZIONI – APPROVAZIONI MANCANTI"
         return result
 
     def analysis_dict(analysis, include_history=False):
@@ -178,6 +216,14 @@ def init_feasibility(app, app_module):
         if include_history:
             history = FeasibilityRevision.query.filter_by(analysis_id=analysis.id).order_by(FeasibilityRevision.version.desc()).limit(20).all()
             result["revisions"] = [row.to_dict() for row in history]
+            decisions = FeasibilityDecision.query.filter_by(analysis_id=analysis.id).order_by(FeasibilityDecision.id.desc()).limit(20).all()
+            result["decisions"] = [{
+                "id": row.id, "decision": row.decision, "conditions": row.conditions,
+                "evidence_ref": row.evidence_ref, "residual_defects": row.residual_defects,
+                "cost_to_complete": row.cost_to_complete, "decided_by_user_id": row.decided_by_user_id,
+                "analysis_version": row.analysis_version,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            } for row in decisions]
         return result
 
     def parse_assumptions(data):
@@ -345,9 +391,43 @@ def init_feasibility(app, app_module):
         db.session.commit()
         return jsonify(analysis=analysis_dict(analysis))
 
+    @app.post("/api/admin/feasibility/<int:analysis_id>/decision")
+    def feasibility_decision(analysis_id):
+        actor, denied = staff_user("feasibility_approve")
+        if denied:
+            return denied
+        analysis = db.session.get(FeasibilityAnalysis, analysis_id)
+        if not analysis or analysis.archived_at:
+            return jsonify(error="Analisi non disponibile."), 404
+        data = request.get_json(silent=True) or {}
+        decision = app_module.clean_text(data.get("decision"), 40)
+        conditions = app_module.clean_text(data.get("conditions"), 5000)
+        evidence = app_module.clean_text(data.get("evidence_ref"), 500)
+        defects = app_module.clean_text(data.get("residual_defects"), 5000)
+        try:
+            cost_to_complete = float(data.get("cost_to_complete") or 0)
+        except (TypeError, ValueError):
+            return jsonify(error="Costo a finire non valido."), 400
+        if decision not in FINAL_DECISIONS or not evidence or cost_to_complete < 0 or not math.isfinite(cost_to_complete):
+            return jsonify(error="Decisione, evidenza e costo a finire validi sono obbligatori."), 400
+        if decision == "PROCEDERE CON CONDIZIONI" and not conditions:
+            return jsonify(error="Indicare le condizioni da completare."), 400
+        result = calculations(analysis)
+        if decision == "GO" and (result.get("decision") != "GO" or analysis.status != "Approvata"):
+            return jsonify(error="GO bloccato: completare preventivi, copertura, verifiche e approvazione dell’analisi."), 409
+        row = FeasibilityDecision(analysis_id=analysis.id, decision=decision, conditions=conditions,
+                                  evidence_ref=evidence, residual_defects=defects,
+                                  cost_to_complete=cost_to_complete, decided_by_user_id=actor.id,
+                                  analysis_version=analysis.version)
+        db.session.add(row); db.session.flush()
+        audit(actor, "feasibility_decision", analysis.id, f"decision={decision}; record={row.id}")
+        db.session.commit()
+        return jsonify(analysis=analysis_dict(analysis, include_history=True)), 201
+
     app.extensions["aplsai_feasibility"] = {
         "FeasibilityAnalysis": FeasibilityAnalysis,
         "FeasibilityRevision": FeasibilityRevision,
+        "FeasibilityDecision": FeasibilityDecision,
         "analysis_dict": analysis_dict,
         "calculations": calculations,
     }

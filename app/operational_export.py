@@ -245,18 +245,20 @@ def init_operational_export(app, app_module):
         feasibility_ext = app.extensions.get("aplsai_feasibility") or {}
         Analysis = feasibility_ext.get("FeasibilityAnalysis")
         AnalysisRevision = feasibility_ext.get("FeasibilityRevision")
+        AnalysisDecision = feasibility_ext.get("FeasibilityDecision")
         analysis_dict = feasibility_ext.get("analysis_dict")
         analyses = Analysis.query.order_by(Analysis.id.asc()).all() if Analysis else []
         _sheet(wb, "Fattibilità operazioni", [
             "ID", "ID immobile", "Riferimento", "ID scenario", "Scenario", "Nome analisi",
             "Stato", "Vendita attesa", "Altri ricavi", "Capitale AP", "Finanziamento esterno",
-            "Risk Budget", "Margine obiettivo %", "Durata Base mesi", "Decisione",
-            "Costi conosciuti Base", "Categorie mancanti", "Versione", "Note", "Aggiornato il",
+            "Risk Budget", "Margine obiettivo %", "Durata Base mesi", "Decisione completa", "Decisione economica",
+            "Costi conosciuti Base", "Preventivi CO 01 applicati", "Preventivi verificati", "Categorie mancanti", "Versione", "Note", "Aggiornato il",
         ], [(
             row.id, row.property_id, data.get("property_ref"), row.scenario_id, data.get("scenario_name"),
             row.name, row.status, row.expected_sale_value, row.other_income, row.ap_capital,
             row.external_financing, row.risk_budget, row.target_margin_percent,
-            row.base_duration_months, data["results"]["decision"], data["results"]["known_cost_base"],
+            row.base_duration_months, data["results"]["decision"], data["results"].get("economic_decision"), data["results"]["known_cost_base"],
+            data["results"].get("quote_basis", {}).get("applied", False), data["results"].get("quote_basis", {}).get("verified", 0),
             ", ".join(data["results"]["missing_categories"]), row.version, row.notes, _iso(row.updated_at),
         ) for row in analyses for data in [analysis_dict(row)]])
         _sheet(wb, "Stress test", [
@@ -280,6 +282,15 @@ def init_operational_export(app, app_module):
             row.id, row.analysis_id, row.version, row.changed_by_user_id,
             row.change_note, _iso(row.created_at), row.snapshot_json,
         ) for row in analysis_revisions])
+        analysis_decisions = AnalysisDecision.query.order_by(AnalysisDecision.analysis_id.asc(), AnalysisDecision.id.asc()).all() if AnalysisDecision else []
+        _sheet(wb, "Decisioni fattibilità", [
+            "ID", "ID analisi", "Decisione", "Condizioni", "Evidenza", "Difetti residui",
+            "Costo a finire", "ID decisore", "Versione analisi", "Data",
+        ], [(
+            row.id, row.analysis_id, row.decision, row.conditions, row.evidence_ref,
+            row.residual_defects, row.cost_to_complete, row.decided_by_user_id,
+            row.analysis_version, _iso(row.created_at),
+        ) for row in analysis_decisions])
 
         investor_ext = app.extensions.get("aplsai_investors") or {}
         Investor = investor_ext.get("InvestorProfile")

@@ -21,6 +21,7 @@ PERMISSIONS = {
         "property_update",
         "scenario_manage",
         "feasibility_manage",
+        "feasibility_approve",
         "cashflow_manage",
         "portfolio_read",
         "portfolio_manage",

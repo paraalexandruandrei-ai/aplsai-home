@@ -338,6 +338,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertIn("Fattibilità operazioni", workbook.sheetnames)
         self.assertIn("Stress test", workbook.sheetnames)
         self.assertIn("Storico fattibilità", workbook.sheetnames)
+        self.assertIn("Decisioni fattibilità", workbook.sheetnames)
         self.assertIn("Piani di cassa", workbook.sheetnames)
         self.assertIn("Movimenti di cassa", workbook.sheetnames)
         self.assertIn("Cassa mensile", workbook.sheetnames)
