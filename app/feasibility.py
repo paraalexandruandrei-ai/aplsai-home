@@ -88,7 +88,7 @@ def init_feasibility(app, app_module):
         scenario = db.session.get(Scenario, analysis.scenario_id) if Scenario else None
         return scenario, serializer(scenario) if scenario and serializer else None
 
-    def calculations(analysis):
+    def calculations(analysis, include_investors=True):
         scenario, data = scenario_data(analysis)
         prop = db.session.get(app_module.Property, analysis.property_id)
         purchase = float(prop.price) if prop else 0
@@ -139,7 +139,7 @@ def init_feasibility(app, app_module):
             decision = "GO CON RISERVE"
         else:
             decision = "GO"
-        return {
+        result = {
             "engine_version": ENGINE_VERSION, "decision": decision,
             "known_cost_base": round(purchase + item_cost, 2),
             "purchase_price": purchase, "scenario_item_cost_max": round(item_cost, 2),
@@ -149,6 +149,12 @@ def init_feasibility(app, app_module):
                 + ["Il fabbisogno di cassa è una stima conservativa prima dell’incasso finale."]
                 + ["Valori da validare con tecnico, commercialista e finanziatore."],
         }
+        if include_investors:
+            investor_ext = app.extensions.get("aplsai_investors") or {}
+            coverage = investor_ext.get("coverage_for_analysis")
+            if coverage:
+                result["financial_coverage"] = coverage(analysis)
+        return result
 
     def analysis_dict(analysis, include_history=False):
         scenario, data = scenario_data(analysis)
@@ -343,4 +349,5 @@ def init_feasibility(app, app_module):
         "FeasibilityAnalysis": FeasibilityAnalysis,
         "FeasibilityRevision": FeasibilityRevision,
         "analysis_dict": analysis_dict,
+        "calculations": calculations,
     }

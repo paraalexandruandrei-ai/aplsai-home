@@ -26,6 +26,8 @@ PERMISSIONS = {
         "portfolio_manage",
         "capacity_read",
         "capacity_manage",
+        "investor_read",
+        "investor_manage",
         "opportunity_read",
         "opportunity_manage",
         "outreach_read",

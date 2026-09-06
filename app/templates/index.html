@@ -291,7 +291,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         <div class="stat-box"><span>Immobili</span><strong id="sProperties">0</strong></div>
         <div class="stat-box"><span>Trattative</span><strong id="sDeals">0</strong></div>
       </div>
-      <select class="staff-quick" id="staffQuickNav" aria-label="Vai alla sezione staff" onchange="staffQuickNav(this.value)"><option value="">Vai alla sezione…</option><option value="today">Oggi</option><option value="tasks">Incarichi</option><option value="clients">Clienti</option><option value="opportunities">Opportunità</option><option value="outreach">Contatti immobili</option><option value="properties">Immobili</option><option value="scenarios">Scenari</option><option value="feasibility">Fattibilità</option><option value="cashflow">Cassa</option><option value="portfolio">Portafoglio</option><option value="capacity">Capacità</option><option value="matching">Matching</option><option value="deals">Trattative</option><option value="referrals">Referral</option><option value="documents">Documenti</option><option value="protocol">Regole staff</option><option value="collaborators">Collaboratori</option><option value="export">Esportazione</option><option value="security">Sicurezza</option></select>
+      <select class="staff-quick" id="staffQuickNav" aria-label="Vai alla sezione staff" onchange="staffQuickNav(this.value)"><option value="">Vai alla sezione…</option><option value="today">Oggi</option><option value="tasks">Incarichi</option><option value="clients">Clienti</option><option value="opportunities">Opportunità</option><option value="outreach">Contatti immobili</option><option value="properties">Immobili</option><option value="scenarios">Scenari</option><option value="feasibility">Fattibilità</option><option value="investors">Investitori</option><option value="cashflow">Cassa</option><option value="portfolio">Portafoglio</option><option value="capacity">Capacità</option><option value="matching">Matching</option><option value="deals">Trattative</option><option value="referrals">Referral</option><option value="documents">Documenti</option><option value="protocol">Regole staff</option><option value="collaborators">Collaboratori</option><option value="export">Esportazione</option><option value="security">Sicurezza</option></select>
       <div class="staff-tabs">
         <button class="staff-tab active" onclick="staffTab('today',this)">Oggi</button>
         <button class="staff-tab" id="staffTasksTab" onclick="staffTab('tasks',this)">Incarichi</button>
@@ -301,6 +301,7 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
         <button class="staff-tab" onclick="staffTab('properties',this)">Immobili</button>
         <button class="staff-tab" onclick="staffTab('scenarios',this)">Scenari</button>
         <button class="staff-tab" onclick="staffTab('feasibility',this)">Fattibilità</button>
+        <button class="staff-tab" id="staffInvestorsTab" onclick="staffTab('investors',this)">Investitori</button>
         <button class="staff-tab" onclick="staffTab('cashflow',this)">Cassa</button>
         <button class="staff-tab" onclick="staffTab('portfolio',this)">Portafoglio</button>
         <button class="staff-tab" onclick="staffTab('capacity',this)">Capacità</button>
@@ -524,6 +525,47 @@ footer{background:#fff;border-top:1px solid var(--line);padding:24px;color:var(-
           <button class="secondary full" id="feasibilityCancelBtn" style="display:none" onclick="resetFeasibilityForm()">Annulla modifica</button>
         </article>
         <article class="area-card"><h3>Analisi delle operazioni</h3><div id="feasibilityList"></div><div id="feasibilityDetail" class="list-row" style="display:none"></div></article>
+      </div></div>
+      <div id="staff-investors" class="staff-panel" style="display:none"><div class="area-grid">
+        <article class="area-card">
+          <h3>Registra investitore</h3>
+          <label>Nome o ragione sociale</label><input id="investorName" placeholder="Nome investitore">
+          <label>Email</label><input id="investorEmail" type="email" placeholder="email@esempio.it">
+          <label>Telefono</label><input id="investorPhone" placeholder="Recapito">
+          <label>Tipo</label><select id="investorType"><option>Privato</option><option>Società</option><option>Investitore professionale</option><option>Partner finanziario</option></select>
+          <label>Capitale disponibile dichiarato</label><input id="investorCapital" type="number" min="0" placeholder="Euro">
+          <label>Stato</label><select id="investorStatus"><option>Potenziale</option><option>In verifica</option><option>Approvato</option><option>Sospeso</option></select>
+          <label>Verifica</label><select id="investorVerification"><option>Da verificare</option><option>Identità verificata</option><option>Documenti verificati</option><option>Verificato</option></select>
+          <label class="hint"><input id="investorNda" type="checkbox"> Accordo di riservatezza firmato</label>
+          <label>Note riservate</label><textarea id="investorNotes" rows="3"></textarea>
+          <button class="primary full" onclick="saveInvestor()">Registra investitore</button>
+          <p class="hint">Il capitale dichiarato non viene conteggiato nella copertura finché non è assegnato e confermato per una specifica operazione.</p>
+        </article>
+        <article class="area-card">
+          <h3>Registro investitori</h3>
+          <div id="investorSummary"></div>
+          <div id="investorList"></div>
+        </article>
+        <article class="area-card">
+          <h3>Assegna capitale a un’operazione</h3>
+          <label>Investitore</label><select id="commitmentInvestor"></select>
+          <label>Analisi di fattibilità</label><select id="commitmentAnalysis" onchange="showFundingCoverage()"></select>
+          <label>Importo</label><input id="commitmentAmount" type="number" min="0" placeholder="Euro">
+          <label>Stato dell’impegno</label><select id="commitmentStatus"><option>Manifestazione di interesse</option><option>Da verificare</option><option>Confermato</option><option>Versato</option><option>Revocato</option></select>
+          <label>Fonte della conferma</label><input id="commitmentSource" placeholder="Contratto, bonifico, delibera o da verificare">
+          <label>Riferimento documento</label><input id="commitmentDocument" placeholder="Numero contratto o collegamento">
+          <label>Note</label><textarea id="commitmentNotes" rows="3"></textarea>
+          <button class="primary full" onclick="saveInvestorCommitment()">Registra impegno</button>
+          <p class="hint">Solo gli stati “Confermato” e “Versato” concorrono alla copertura finanziaria.</p>
+        </article>
+        <article class="area-card">
+          <h3>Copertura finanziaria</h3>
+          <label>Margine per imprevisti</label><input id="fundingBuffer" type="number" min="0" max="100" value="10">
+          <label>Stato del piano</label><select id="fundingStatus"><option>Bozza</option><option selected>Da verificare</option><option>Approvato</option></select>
+          <label>Note e condizioni</label><textarea id="fundingNotes" rows="3"></textarea>
+          <button class="secondary full" onclick="saveFundingPlan()">Salva piano finanziario</button>
+          <div id="fundingCoverage"><p>Seleziona un’analisi.</p></div>
+        </article>
       </div></div>
       <div id="staff-cashflow" class="staff-panel" style="display:none"><div class="area-grid">
         <article class="area-card"><h3 id="cashflowFormTitle">Nuovo piano di cassa</h3>
@@ -1134,6 +1176,9 @@ async function loadStaffAccountTools(){
     const panel=document.getElementById('staff-collaborators');
     const exportTab=document.getElementById('staffExportTab');
     const exportPanel=document.getElementById('staff-export');
+    const investorsTab=document.getElementById('staffInvestorsTab');
+    const investorsPanel=document.getElementById('staff-investors');
+    const investorsQuick=document.querySelector('#staffQuickNav option[value="investors"]');
     const portfolioSave=document.getElementById('portfolioSaveBtn');
     if(portfolioSave)portfolioSave.disabled=me.staff.role!=='admin';
     if(me.staff.role!=='admin'){
@@ -1141,12 +1186,17 @@ async function loadStaffAccountTools(){
       if(panel)panel.style.display='none';
       if(exportTab)exportTab.style.display='none';
       if(exportPanel)exportPanel.style.display='none';
+      if(investorsTab)investorsTab.style.display='none';
+      if(investorsPanel)investorsPanel.style.display='none';
+      if(investorsQuick)investorsQuick.style.display='none';
       await loadWorkTasks();
       await loadStaffProtocol();
       return;
     }
     if(tab)tab.style.display='';
     if(exportTab)exportTab.style.display='';
+    if(investorsTab)investorsTab.style.display='';
+    if(investorsQuick)investorsQuick.style.display='';
     if(typeof renderClientRegistry==='function')renderClientRegistry();
     await loadOperators();
     await loadWorkTasks();
@@ -1245,6 +1295,7 @@ async function renderStaffServer(){
   document.getElementById("scenarioClient").innerHTML='<option value="">Nessun cliente specifico</option>'+realClients.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
   try{await loadScenarios();}catch(_){const box=document.getElementById('scenarioList');if(box)box.innerHTML='<p>Scenari non disponibili.</p>';}
   try{await loadFeasibility();}catch(_){const box=document.getElementById('feasibilityList');if(box)box.innerHTML='<p>Analisi non disponibili.</p>';}
+  try{await loadInvestors();}catch(_){const box=document.getElementById('investorList');if(box)box.innerHTML='<p>Registro investitori non disponibile.</p>';}
   try{await loadCashflow();}catch(_){const box=document.getElementById('cashflowList');if(box)box.innerHTML='<p>Piani di cassa non disponibili.</p>';}
   try{await loadPortfolio();}catch(_){const box=document.getElementById('portfolioSummary');if(box)box.innerHTML='<p>Portafoglio non disponibile.</p>';}
   try{await loadCapacity();}catch(_){const box=document.getElementById('capacitySummary');if(box)box.innerHTML='<p>Capacità operativa non disponibile.</p>';}
@@ -1466,7 +1517,7 @@ async function loadFeasibility(){
   renderFeasibilityList();
 }
 
-function renderFeasibilityList(){const box=document.getElementById('feasibilityList');if(!box)return;box.innerHTML=(window.__feasibility||[]).map(a=>`<div class="list-row"><b>${escapeHtml(a.name)}</b><br>${escapeHtml(a.property_ref||'')} · ${escapeHtml(a.scenario_name||'')}<br><strong>${escapeHtml(a.results?.decision||'Da verificare')}</strong><br><small>Costi conosciuti ${matchMoney(a.results?.known_cost_base)} · v${Number(a.version)}</small><br><button class="secondary" onclick="openFeasibility(${Number(a.id)})">Apri analisi</button></div>`).join('')||'<p>Nessuna analisi economica creata.</p>';}
+function renderFeasibilityList(){const box=document.getElementById('feasibilityList');if(!box)return;box.innerHTML=(window.__feasibility||[]).map(a=>{const f=a.results?.financial_coverage;return `<div class="list-row"><b>${escapeHtml(a.name)}</b><br>${escapeHtml(a.property_ref||'')} · ${escapeHtml(a.scenario_name||'')}<br><strong>${escapeHtml(a.results?.decision||'Da verificare')}</strong>${f?`<br><strong>${escapeHtml(f.decision)}</strong> · copertura ${Number(f.coverage_percent||0).toLocaleString('it-IT')}%`:''}<br><small>Costi conosciuti ${matchMoney(a.results?.known_cost_base)} · v${Number(a.version)}</small><br><button class="secondary" onclick="openFeasibility(${Number(a.id)})">Apri analisi</button></div>`;}).join('')||'<p>Nessuna analisi economica creata.</p>';}
 
 function feasibilityAssumptions(){const number=id=>{const value=document.getElementById(id)?.value;return value===''?null:Number(value);};return {base:{revenue_reduction_percent:0,cost_increase_percent:0,delay_months:0},prudente:{revenue_reduction_percent:number('prudRevenue'),cost_increase_percent:number('prudCost'),delay_months:number('prudDelay')},stress:{revenue_reduction_percent:number('stressRevenue'),cost_increase_percent:number('stressCost'),delay_months:number('stressDelay')},doppio_stress:{revenue_reduction_percent:number('doubleRevenue'),cost_increase_percent:number('doubleCost'),delay_months:number('doubleDelay')}};}
 
@@ -1481,9 +1532,18 @@ window.resetFeasibilityForm=function(){['feasibilityId','feasibilityName','feasi
 
 window.editFeasibility=function(id){const a=(window.__feasibility||[]).find(x=>Number(x.id)===Number(id));if(!a)return;const p=a.assumptions||{},values={feasibilityId:a.id,feasibilityScenario:a.scenario_id,feasibilityName:a.name,feasibilitySale:a.expected_sale_value,feasibilityOtherIncome:a.other_income,feasibilityCapital:a.ap_capital,feasibilityFinance:a.external_financing,feasibilityRisk:a.risk_budget,feasibilityMargin:a.target_margin_percent,feasibilityDuration:a.base_duration_months,prudRevenue:p.prudente?.revenue_reduction_percent,prudCost:p.prudente?.cost_increase_percent,prudDelay:p.prudente?.delay_months,stressRevenue:p.stress?.revenue_reduction_percent,stressCost:p.stress?.cost_increase_percent,stressDelay:p.stress?.delay_months,doubleRevenue:p.doppio_stress?.revenue_reduction_percent,doubleCost:p.doppio_stress?.cost_increase_percent,doubleDelay:p.doppio_stress?.delay_months,feasibilityStatus:a.status,feasibilityNotes:a.notes};Object.entries(values).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.value=value??'';});document.getElementById('feasibilityFormTitle').textContent='Modifica analisi economica';document.getElementById('feasibilitySaveBtn').textContent='Ricalcola nuova versione';document.getElementById('feasibilityCancelBtn').style.display='block';document.getElementById('staff-feasibility').scrollIntoView({behavior:'smooth',block:'start'});};
 
-window.openFeasibility=async function(id){try{const d=await api(`/api/staff/feasibility/${id}`),a=d.analysis,r=a.results||{};const cases=(r.cases||[]).map(c=>`<div class="sum"><b>${escapeHtml(c.label)} · ${matchMoney(c.profit)}</b><small>Ricavi ${matchMoney(c.revenue)} · Costi ${matchMoney(c.total_cost)} · Margine ricavi ${c.margin_on_revenue_percent===null?'—':Number(c.margin_on_revenue_percent).toLocaleString('it-IT')+'%'}<br>ROI capitale AP ${c.roi_ap_percent===null?'—':Number(c.roi_ap_percent).toLocaleString('it-IT')+'%'} · Perdita ${matchMoney(c.loss)} · Risk Budget ${escapeHtml(c.risk_status)}<br>Fabbisogno cassa ${matchMoney(c.estimated_peak_cash_need)} · Scoperto ${matchMoney(c.funding_gap)} · Prezzo massimo acquisto ${matchMoney(c.maximum_acquisition_price)} · ${Number(c.duration_months)} mesi</small></div>`).join('');const missing=(r.missing_categories||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')||'<li>Nessuna categoria obbligatoria mancante.</li>';const history=(a.revisions||[]).slice(0,5).map(x=>`<li>v${Number(x.version)} · ${escapeHtml(x.change_note)}</li>`).join('');const box=document.getElementById('feasibilityDetail');box.style.display='block';box.innerHTML=`<h3>${escapeHtml(a.name)}</h3><small>${escapeHtml(a.property_ref||'')} · ${escapeHtml(a.scenario_name||'')} · v${Number(a.version)}</small><div class="sum"><b>Decisione</b><strong>${escapeHtml(r.decision||'Da verificare')}</strong><br><small>Motore ${escapeHtml(r.engine_version||'')}</small></div><div class="sum"><b>Categorie mancanti</b><ul>${missing}</ul></div><h4>Quattro prove di tenuta</h4>${cases}<details><summary>Storico versioni</summary><ul>${history}</ul></details><button class="primary full" onclick="editFeasibility(${Number(a.id)})">Modifica e ricalcola</button><button class="secondary full" onclick="archiveFeasibility(${Number(a.id)})">Archivia analisi</button>`;}catch(e){alert(e.message||'Impossibile aprire l’analisi.');}};
+window.openFeasibility=async function(id){try{const d=await api(`/api/staff/feasibility/${id}`),a=d.analysis,r=a.results||{},f=r.financial_coverage;const cases=(r.cases||[]).map(c=>`<div class="sum"><b>${escapeHtml(c.label)} · ${matchMoney(c.profit)}</b><small>Ricavi ${matchMoney(c.revenue)} · Costi ${matchMoney(c.total_cost)} · Margine ricavi ${c.margin_on_revenue_percent===null?'—':Number(c.margin_on_revenue_percent).toLocaleString('it-IT')+'%'}<br>ROI capitale AP ${c.roi_ap_percent===null?'—':Number(c.roi_ap_percent).toLocaleString('it-IT')+'%'} · Perdita ${matchMoney(c.loss)} · Risk Budget ${escapeHtml(c.risk_status)}<br>Fabbisogno cassa ${matchMoney(c.estimated_peak_cash_need)} · Scoperto ${matchMoney(c.funding_gap)} · Prezzo massimo acquisto ${matchMoney(c.maximum_acquisition_price)} · ${Number(c.duration_months)} mesi</small></div>`).join('');const missing=(r.missing_categories||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')||'<li>Nessuna categoria obbligatoria mancante.</li>';const history=(a.revisions||[]).slice(0,5).map(x=>`<li>v${Number(x.version)} · ${escapeHtml(x.change_note)}</li>`).join('');const funding=f?`<div class="sum"><b>Fattibilità finanziaria</b><strong>${escapeHtml(f.decision)}</strong><br><small>Capitale complessivo con imprevisti ${matchMoney(f.gross_capital_required)} · Da investitori ${matchMoney(f.investor_capital_required)}<br>Confermato ${matchMoney(f.confirmed_investor_capital)} · Mancante ${matchMoney(f.remaining_to_cover)} · Copertura ${Number(f.coverage_percent||0).toLocaleString('it-IT')}%</small></div>`:'';const box=document.getElementById('feasibilityDetail');box.style.display='block';box.innerHTML=`<h3>${escapeHtml(a.name)}</h3><small>${escapeHtml(a.property_ref||'')} · ${escapeHtml(a.scenario_name||'')} · v${Number(a.version)}</small><div class="sum"><b>Decisione tecnica ed economica</b><strong>${escapeHtml(r.decision||'Da verificare')}</strong><br><small>Motore ${escapeHtml(r.engine_version||'')}</small></div>${funding}<div class="sum"><b>Categorie mancanti</b><ul>${missing}</ul></div><h4>Quattro prove di tenuta</h4>${cases}<details><summary>Storico versioni</summary><ul>${history}</ul></details><button class="primary full" onclick="editFeasibility(${Number(a.id)})">Modifica e ricalcola</button><button class="secondary full" onclick="archiveFeasibility(${Number(a.id)})">Archivia analisi</button>`;}catch(e){alert(e.message||'Impossibile aprire l’analisi.');}};
 
 window.archiveFeasibility=async function(id){if(!confirm('Archiviare questa analisi senza cancellarne lo storico?'))return;try{await api(`/api/staff/feasibility/${id}/archive`,{method:'PATCH',body:JSON.stringify({archived:true})});document.getElementById('feasibilityDetail').style.display='none';await loadFeasibility();}catch(e){alert(e.message||'Impossibile archiviare l’analisi.');}};
+
+async function loadInvestors(){const d=await api('/api/staff/investors');window.__investors=d.investors||[];window.__investorAnalyses=d.analyses||[];const active=window.__investors.filter(x=>!x.archived_at);document.getElementById('commitmentInvestor').innerHTML=active.map(x=>`<option value="${Number(x.id)}">${escapeHtml(x.name)} · ${escapeHtml(x.status)}</option>`).join('');document.getElementById('commitmentAnalysis').innerHTML=window.__investorAnalyses.map(x=>`<option value="${Number(x.id)}">${escapeHtml(x.property_ref||'')} · ${escapeHtml(x.name)}</option>`).join('');renderInvestors();showFundingCoverage();}
+function renderInvestors(){const rows=window.__investors||[],active=rows.filter(x=>!x.archived_at),confirmed=active.reduce((s,x)=>s+Number(x.confirmed_capital||0),0),summary=document.getElementById('investorSummary'),box=document.getElementById('investorList');if(summary)summary.innerHTML=`<div class="sum"><b>${active.length} investitori attivi</b><small>Capitale assegnato e confermato ${matchMoney(confirmed)}</small></div>`;if(box)box.innerHTML=active.map(x=>`<div class="list-row"><b>${escapeHtml(x.name)}</b><br>${escapeHtml(x.investor_type)} · ${escapeHtml(x.status)}<br><small>${escapeHtml(x.verification)} · NDA ${x.nda_signed?'firmato':'mancante'}<br>Disponibile dichiarato ${matchMoney(x.available_capital)} · Confermato ${matchMoney(x.confirmed_capital)}</small><br><button class="secondary" onclick="approveInvestor(${Number(x.id)})">Completa verifica</button><button class="secondary" onclick="archiveInvestor(${Number(x.id)})">Archivia</button></div>`).join('')||'<p>Nessun investitore registrato.</p>';}
+window.saveInvestor=async function(){const v=id=>document.getElementById(id)?.value??'';const payload={name:v('investorName').trim(),email:v('investorEmail').trim(),phone:v('investorPhone').trim(),investor_type:v('investorType'),available_capital:Number(v('investorCapital'))||0,status:v('investorStatus'),verification:v('investorVerification'),nda_signed:document.getElementById('investorNda').checked,notes:v('investorNotes').trim()};try{await api('/api/staff/investors',{method:'POST',body:JSON.stringify(payload)});['investorName','investorEmail','investorPhone','investorCapital','investorNotes'].forEach(id=>document.getElementById(id).value='');document.getElementById('investorNda').checked=false;await loadInvestors();}catch(e){alert(e.message||'Impossibile registrare l’investitore.');}};
+window.approveInvestor=async function(id){if(!confirm('Confermi identità, documenti, approvazione e NDA firmato?'))return;try{await api(`/api/staff/investors/${id}`,{method:'PATCH',body:JSON.stringify({status:'Approvato',verification:'Verificato',nda_signed:true})});await loadInvestors();}catch(e){alert(e.message||'Verifica non completata.');}};
+window.archiveInvestor=async function(id){if(!confirm('Archiviare questo investitore?'))return;try{await api(`/api/staff/investors/${id}`,{method:'PATCH',body:JSON.stringify({archived:true})});await loadInvestors();}catch(e){alert(e.message||'Archiviazione non riuscita.');}};
+window.saveInvestorCommitment=async function(){const v=id=>document.getElementById(id)?.value??'';const payload={investor_id:Number(v('commitmentInvestor')),analysis_id:Number(v('commitmentAnalysis')),amount:Number(v('commitmentAmount')),status:v('commitmentStatus'),source:v('commitmentSource').trim()||'Da verificare',document_reference:v('commitmentDocument').trim(),notes:v('commitmentNotes').trim()};try{await api('/api/staff/investor-commitments',{method:'POST',body:JSON.stringify(payload)});['commitmentAmount','commitmentSource','commitmentDocument','commitmentNotes'].forEach(id=>document.getElementById(id).value='');await loadInvestors();await loadFeasibility();}catch(e){alert(e.message||'Impegno non registrato.');}};
+window.showFundingCoverage=function(){const id=Number(document.getElementById('commitmentAnalysis')?.value),row=(window.__investorAnalyses||[]).find(x=>Number(x.id)===id),f=row?.coverage,box=document.getElementById('fundingCoverage');if(!box)return;if(!f){box.innerHTML='<p>Prima crea un’analisi di fattibilità.</p>';return;}document.getElementById('fundingBuffer').value=f.contingency_percent??10;document.getElementById('fundingStatus').value=f.funding_plan_status||'Da verificare';const commitments=(f.commitments||[]).map(x=>`<li>${escapeHtml(x.investor_name||'Investitore')} · ${matchMoney(x.amount)} · ${escapeHtml(x.status)}</li>`).join('')||'<li>Nessun impegno registrato.</li>';box.innerHTML=`<div class="sum"><b>${escapeHtml(f.decision)}</b><strong>${Number(f.coverage_percent||0).toLocaleString('it-IT')}%</strong><br><small>Necessario da investitori ${matchMoney(f.investor_capital_required)} · Confermato ${matchMoney(f.confirmed_investor_capital)} · Mancante ${matchMoney(f.remaining_to_cover)}<br>Interesse non conteggiato ${matchMoney(f.interest_not_counted)}</small></div><details><summary>Impegni collegati</summary><ul>${commitments}</ul></details><p class="hint">${escapeHtml(f.warning||'')}</p>`;};
+window.saveFundingPlan=async function(){const id=Number(document.getElementById('commitmentAnalysis')?.value);if(!id){alert('Seleziona un’analisi.');return;}const payload={contingency_percent:Number(document.getElementById('fundingBuffer').value),status:document.getElementById('fundingStatus').value,notes:document.getElementById('fundingNotes').value.trim()};try{await api(`/api/staff/investor-funding/${id}`,{method:'PATCH',body:JSON.stringify(payload)});await loadInvestors();await loadFeasibility();}catch(e){alert(e.message||'Piano finanziario non salvato.');}};
 
 const cashflowCategories=['Acquisto immobile','Lavori','Tecnici e pratiche','Imposte, notaio e agenzia','Costi finanziari','Costi di mantenimento','Vendita immobile','Altri ricavi','Fondo imprevisti','Altro'];
 async function loadCashflow(){const d=await api('/api/staff/cashflow');window.__cashflow=d.plans||[];const select=document.getElementById('cashflowAnalysis');if(select)select.innerHTML=(window.__feasibility||[]).map(a=>`<option value="${Number(a.id)}">${escapeHtml(a.property_ref||'')} · ${escapeHtml(a.name)}</option>`).join('');renderCashflowList();}

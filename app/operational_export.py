@@ -281,6 +281,49 @@ def init_operational_export(app, app_module):
             row.change_note, _iso(row.created_at), row.snapshot_json,
         ) for row in analysis_revisions])
 
+        investor_ext = app.extensions.get("aplsai_investors") or {}
+        Investor = investor_ext.get("InvestorProfile")
+        Commitment = investor_ext.get("InvestorCommitment")
+        FundingPlan = investor_ext.get("InvestorFundingPlan")
+        investor_serializer = investor_ext.get("investor_dict")
+        commitment_serializer = investor_ext.get("commitment_dict")
+        coverage_serializer = investor_ext.get("coverage_for_analysis")
+        investors = Investor.query.order_by(Investor.id.asc()).all() if Investor else []
+        _sheet(wb, "Investitori", [
+            "ID", "Nome", "Email", "Telefono", "Tipo", "Capitale dichiarato",
+            "Stato", "Verifica", "NDA firmato", "Capitale confermato",
+            "Interesse non confermato", "Archiviato il", "Aggiornato il", "Note",
+        ], [(
+            row.id, row.name, row.email, row.phone, row.investor_type,
+            row.available_capital, row.status, row.verification, bool(row.nda_signed),
+            data.get("confirmed_capital"), data.get("interest_capital"),
+            _iso(row.archived_at), _iso(row.updated_at), row.notes,
+        ) for row in investors for data in [investor_serializer(row)]])
+        commitments = Commitment.query.order_by(Commitment.analysis_id.asc(), Commitment.id.asc()).all() if Commitment else []
+        _sheet(wb, "Impegni investitori", [
+            "ID", "ID investitore", "Investitore", "ID analisi", "Importo", "Stato",
+            "Conteggiato nella copertura", "Fonte", "Riferimento documento", "Creato il", "Note",
+        ], [(
+            row.id, row.investor_id, data.get("investor_name"), row.analysis_id,
+            row.amount, row.status, data.get("counted_as_coverage"), row.source,
+            row.document_reference, _iso(row.created_at), row.notes,
+        ) for row in commitments for data in [commitment_serializer(row)]])
+        funding_plans = FundingPlan.query.order_by(FundingPlan.analysis_id.asc()).all() if FundingPlan else []
+        _sheet(wb, "Copertura investimenti", [
+            "ID analisi", "Margine imprevisti %", "Stato piano", "Costo Base",
+            "Capitale totale richiesto", "Capitale AP", "Finanziamento esterno",
+            "Richiesto agli investitori", "Confermato", "Mancante", "Copertura %",
+            "Decisione", "Aggiornato il", "Note",
+        ], [(
+            row.analysis_id, row.contingency_percent, row.status,
+            data.get("total_cost_base"), data.get("gross_capital_required"),
+            data.get("ap_capital"), data.get("external_financing"),
+            data.get("investor_capital_required"), data.get("confirmed_investor_capital"),
+            data.get("remaining_to_cover"), data.get("coverage_percent"), data.get("decision"),
+            _iso(row.updated_at), row.notes,
+        ) for row in funding_plans for analysis in [app_module.db.session.get(Analysis, row.analysis_id)]
+          if analysis for data in [coverage_serializer(analysis)]])
+
         cash_ext = app.extensions.get("aplsai_cashflow") or {}
         CashPlan = cash_ext.get("CashFlowPlan")
         CashMovement = cash_ext.get("CashFlowMovement")

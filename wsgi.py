@@ -19,6 +19,7 @@ from app.outreach import init_outreach
 from app.gmail_integration import init_gmail_integration
 from app.staff_protocol import init_staff_protocol
 from app.work_tasks import init_work_tasks
+from app.investors import init_investors
 
 app = app_module.create_app()
 init_operations(app, app_module)
@@ -31,6 +32,7 @@ init_client_classification(app, app_module)
 init_property_profiles(app, app_module)
 init_scenarios(app, app_module)
 init_feasibility(app, app_module)
+init_investors(app, app_module)
 init_cashflow(app, app_module)
 init_portfolio(app, app_module)
 init_capacity(app, app_module)
