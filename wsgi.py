@@ -26,6 +26,7 @@ from app.quotes import init_quotes
 from app.cash_controls import init_cash_controls
 from app.launch_control import init_launch_control
 from app.worksites import init_worksites
+from app.deliveries import init_deliveries
 
 app = app_module.create_app()
 init_operations(app, app_module)
@@ -53,6 +54,7 @@ init_quotes(app, app_module)
 init_cash_controls(app, app_module)
 init_launch_control(app, app_module)
 init_worksites(app, app_module)
+init_deliveries(app, app_module)
 
 
 def _sanitize_value(value, key=None):

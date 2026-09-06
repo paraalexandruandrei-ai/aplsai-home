@@ -22,6 +22,7 @@ ROUTE_PERMISSIONS = {
     "/api/staff/cash-controls": "cash_control_read",
     "/api/staff/launch-controls": "launch_read",
     "/api/staff/worksites": "worksite_read",
+    "/api/staff/deliveries": "delivery_read",
 }
 
 PREFIX_PERMISSIONS = {
@@ -43,6 +44,9 @@ PREFIX_PERMISSIONS = {
     "/api/staff/launch-checks/": "launch_manage",
     "/api/staff/worksites/": "worksite_manage",
     "/api/staff/worksite-phases/": "worksite_manage",
+    "/api/staff/deliveries/": "delivery_manage",
+    "/api/staff/delivery-checks/": "delivery_manage",
+    "/api/staff/delivery-defects/": "delivery_manage",
 }
 
 

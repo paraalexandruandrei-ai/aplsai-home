@@ -494,6 +494,53 @@ def init_operational_export(app, app_module):
             for row in worksite_events
         ])
 
+        delivery_ext = app.extensions.get("aplsai_deliveries") or {}
+        OperationDelivery = delivery_ext.get("OperationDelivery")
+        DeliveryCheck = delivery_ext.get("DeliveryCheck")
+        DeliveryDefect = delivery_ext.get("DeliveryDefect")
+        DeliveryEvent = delivery_ext.get("DeliveryEvent")
+        delivery_serializer = delivery_ext.get("delivery_dict")
+        deliveries = OperationDelivery.query.order_by(OperationDelivery.id.asc()).all() if OperationDelivery else []
+        _sheet(wb, "Consegne", [
+            "ID", "ID cantiere", "Cantiere", "Destinazione", "Destinatario", "Contatto", "Stato",
+            "Documenti previsti", "Documenti completi", "Completezza %", "Riferimenti tecnici",
+            "Chiavi previste", "Chiavi consegnate", "Garanzie", "Assistenza", "Costo previsto",
+            "Costo acquisto", "Costo lavori", "Altri costi", "Costo effettivo", "Valore finale",
+            "Margine finale", "Scostamento", "Spiegazione scostamento", "Comprensione %", "Soddisfazione %",
+            "Evidenza consegna", "Verbale consegna", "Consegnata il", "Decisione finale", "Chiusa il", "Versione",
+        ], [(
+            row.id, row.worksite_id, data.get("worksite_name"), row.delivery_type, row.recipient_name,
+            row.recipient_contact, row.status, row.required_documents, row.complete_documents,
+            data.get("documents_percent"), row.technical_documents_ref, row.keys_expected, row.keys_delivered,
+            row.warranty_ref, row.assistance_contact, row.planned_total_cost, row.acquisition_cost, row.work_cost,
+            row.other_cost, data.get("actual_total_cost"), row.final_value, data.get("final_margin"),
+            data.get("cost_variance"), row.variance_explanation, row.comprehension_percent,
+            row.satisfaction_percent, row.handover_evidence, row.delivery_note, _iso(row.delivered_at),
+            row.closing_note, _iso(row.closed_at), row.version,
+        ) for row in deliveries for data in [delivery_serializer(row) if delivery_serializer else {}]])
+        delivery_checks = DeliveryCheck.query.order_by(DeliveryCheck.delivery_id.asc(), DeliveryCheck.code.asc()).all() if DeliveryCheck else []
+        _sheet(wb, "Controlli consegna", [
+            "ID", "ID consegna", "Codice", "Controllo", "Risultato atteso", "Stato automatico",
+            "Dettaglio automatico", "Evidenza", "Difetti residui", "Azioni obbligatorie", "Responsabile azione",
+            "Verifica Admin", "Nota verifica", "ID verificatore", "Verificato il",
+        ], [(row.id, row.delivery_id, row.code, row.title, row.expected_result, row.automatic_status,
+             row.automatic_detail, row.evidence_ref, row.residual_defects, row.mandatory_actions,
+             row.action_owner, row.verification_status, row.verification_note, row.verified_by_user_id,
+             _iso(row.verified_at)) for row in delivery_checks])
+        delivery_defects = DeliveryDefect.query.order_by(DeliveryDefect.delivery_id.asc(), DeliveryDefect.id.asc()).all() if DeliveryDefect else []
+        _sheet(wb, "Difetti post-consegna", [
+            "ID", "ID consegna", "Titolo", "Descrizione", "Gravità", "Stato", "ID responsabile", "Scadenza",
+            "Evidenza soluzione", "Nota soluzione", "ID verificatore", "Verificato il", "Creato il", "Aggiornato il",
+        ], [(row.id, row.delivery_id, row.title, row.description, row.severity, row.status,
+             row.responsible_user_id, _iso(row.due_at), row.evidence_ref, row.resolution_note,
+             row.verified_by_user_id, _iso(row.verified_at), _iso(row.created_at), _iso(row.updated_at))
+            for row in delivery_defects])
+        delivery_events = DeliveryEvent.query.order_by(DeliveryEvent.id.asc()).all() if DeliveryEvent else []
+        _sheet(wb, "Storico consegne", ["ID", "ID consegna", "ID difetto", "ID autore", "Azione", "Dettaglio", "Data"], [
+            (row.id, row.delivery_id, row.defect_id, row.actor_user_id, row.action, row.detail, _iso(row.created_at))
+            for row in delivery_events
+        ])
+
         portfolio_ext = app.extensions.get("aplsai_portfolio") or {}
         portfolio_serializer = portfolio_ext.get("portfolio_dict")
         portfolio = portfolio_serializer(include_history=True) if portfolio_serializer else {
