@@ -24,6 +24,7 @@ ROUTE_PERMISSIONS = {
     "/api/staff/worksites": "worksite_read",
     "/api/staff/deliveries": "delivery_read",
     "/api/staff/partners": "partner_registry_read",
+    "/api/staff/procurements": "procurement_read",
 }
 
 PREFIX_PERMISSIONS = {
@@ -50,6 +51,8 @@ PREFIX_PERMISSIONS = {
     "/api/staff/delivery-defects/": "delivery_manage",
     "/api/staff/partners/": "partner_registry_manage",
     "/api/staff/partner-assignments/": "partner_registry_manage",
+    "/api/staff/procurements/": "procurement_manage",
+    "/api/staff/procurement-offers/": "procurement_manage",
 }
 
 

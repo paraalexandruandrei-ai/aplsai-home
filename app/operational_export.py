@@ -593,6 +593,60 @@ def init_operational_export(app, app_module):
             for row in partner_events
         ])
 
+        procurement_ext = app.extensions.get("aplsai_procurement") or {}
+        ProcurementCase = procurement_ext.get("ProcurementCase")
+        ProcurementOffer = procurement_ext.get("ProcurementOffer")
+        ProcurementEvent = procurement_ext.get("ProcurementEvent")
+        procurement_case_serializer = procurement_ext.get("case_dict")
+        procurement_offer_serializer = procurement_ext.get("offer_dict")
+        procurement_cases = ProcurementCase.query.order_by(ProcurementCase.id.asc()).all() if ProcurementCase else []
+        procurement_case_names = {row.id: row.title for row in procurement_cases}
+        procurement_case_types = {row.id: row.case_type for row in procurement_cases}
+        _sheet(wb, "Confronti offerte", [
+            "ID", "Titolo", "Tipo", "Riferimento requisiti", "Capitolato comune", "Quantità/perimetro",
+            "Requisiti tecnici", "Budget", "Fonte budget", "Stato", "ID offerta scelta",
+            "Motivazione decisione", "Evidenza decisione", "Deciso il", "Numero offerte", "Versione",
+        ], [(
+            row.id, row.title, row.case_type, row.requirement_ref, row.common_specification, row.quantity_scope,
+            row.technical_requirements, row.budget_reference, row.budget_source, row.status, row.selected_offer_id,
+            row.decision_note, row.decision_evidence, _iso(row.decided_at), len(data.get("offers", [])), row.version,
+        ) for row in procurement_cases for data in [procurement_case_serializer(row) if procurement_case_serializer else {}]])
+        procurement_offers = ProcurementOffer.query.order_by(ProcurementOffer.id.asc()).all() if ProcurementOffer else []
+        _sheet(wb, "Offerte fornitori", [
+            "ID", "ID confronto", "Confronto", "ID partner", "Partner", "Documento offerta", "Moduli/attività",
+            "Risultati", "Durata giorni", "Giornate-uomo", "Profili/tariffe", "Tecnologie", "Dipendenze",
+            "Esclusioni", "Assunzioni", "IVA", "Milestone/pagamenti", "Una tantum", "Canone mensile",
+            "Manutenzione 24m", "Cloud 24m", "IA 24m", "Licenze 24m", "Terze parti 24m", "Subfornitori 24m",
+            "Costi esclusi stimati", "Costo totale 24m", "Capacità", "Evidenza capacità", "Repository APLSAI",
+            "Account APLSAI", "Documentazione trasferibile", "Terze parti separabili", "IA sostituibile",
+            "Clausola uscita", "Protezioni mancanti", "Completezza", "Dati mancanti", "Aderenza funzionale",
+            "Qualità tecnica", "IA e dati", "Sicurezza", "Proprietà codice/IP", "Squadra", "Tempi/capacità",
+            "Valutazione TCO", "Risultato ponderato", "Fonte valutazione", "Stato verifica", "Nota verifica",
+            "Incarichi attivi partner", "Quota incarichi attivi %", "Avviso concentrazione", "Verificata il",
+        ], [(
+            row.id, row.case_id, procurement_case_names.get(row.case_id, ""), row.partner_id, data.get("partner_name"),
+            row.offer_ref, row.modules_detail, row.deliverables, row.duration_days, row.person_days, row.profiles_rates,
+            row.technologies, row.dependencies, row.exclusions, row.assumptions, row.vat_note, row.payment_milestones,
+            row.one_time_cost, row.recurring_monthly_cost, row.maintenance_24m, row.cloud_24m, row.ai_24m,
+            row.licenses_24m, row.third_party_24m, row.subcontractors_24m, row.estimated_excluded_costs,
+            data.get("tco_24m", 0), row.capacity_status, row.capacity_evidence, bool(row.repository_aplsai),
+            bool(row.accounts_aplsai), bool(row.documentation_transferable), bool(row.third_party_separable),
+            bool(row.ai_replaceable), bool(row.exit_clause), _join(data.get("lock_in_missing", [])),
+            data.get("completeness"), _join(data.get("missing", [])), scores.get("functional_score"),
+            scores.get("technical_score"), scores.get("ai_data_score"), scores.get("cybersecurity_score"),
+            scores.get("ip_score"), scores.get("team_score"), scores.get("capacity_score"), scores.get("tco_score"),
+            data.get("weighted_score"), row.score_evidence, row.review_status, row.review_note,
+            concentration.get("active_assignments", 0), concentration.get("share_percent", 0),
+            concentration.get("notice"), _iso(row.reviewed_at),
+        ) for row in procurement_offers
+          for data in [procurement_offer_serializer(row, procurement_case_types.get(row.case_id)) if procurement_offer_serializer else {}]
+          for scores in [data.get("scores") or {}] for concentration in [data.get("concentration") or {}]])
+        procurement_events = ProcurementEvent.query.order_by(ProcurementEvent.id.asc()).all() if ProcurementEvent else []
+        _sheet(wb, "Storico confronti", ["ID", "ID confronto", "ID offerta", "ID autore", "Azione", "Dettaglio", "Data"], [
+            (row.id, row.case_id, row.offer_id, row.actor_user_id, row.action, row.detail, _iso(row.created_at))
+            for row in procurement_events
+        ])
+
         portfolio_ext = app.extensions.get("aplsai_portfolio") or {}
         portfolio_serializer = portfolio_ext.get("portfolio_dict")
         portfolio = portfolio_serializer(include_history=True) if portfolio_serializer else {
