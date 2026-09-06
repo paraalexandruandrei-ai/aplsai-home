@@ -480,6 +480,38 @@ def init_operational_export(app, app_module):
             (d.id, d.client_id, d.property_id, d.ref, d.stage, _iso(d.updated_at))
             for d in app_module.Deal.query.order_by(app_module.Deal.id.asc()).all()
         ])
+        transaction_ext = app.extensions.get("aplsai_transactions") or {}
+        TransactionCase = transaction_ext.get("TransactionCase")
+        TransactionRevision = transaction_ext.get("TransactionRevision")
+        transaction_serializer = transaction_ext.get("transaction_dict")
+        transaction_names = {user.id: user.name for user in app_module.User.query.all()}
+        transactions = TransactionCase.query.order_by(TransactionCase.id.asc()).all() if TransactionCase else []
+        _sheet(wb, "Percorso trattative", [
+            "ID", "ID trattativa", "Fase calcolata", "ID cliente", "Cliente", "ID immobile",
+            "Immobile", "Interesse", "Data interesse", "Caparra", "Stato caparra",
+            "Riferimento caparra", "Preliminare", "Riferimento preliminare", "Trascritto il",
+            "Cessione", "Riferimento cessione", "Lavori", "Verifica tecnica", "Verifica legale",
+            "Chiusura", "Riferimento chiusura", "Data chiusura", "Prossima azione", "Scadenza",
+            "ID responsabile", "Responsabile", "Passaggi mancanti", "Versione", "Note", "Aggiornato il",
+        ], [(
+            row.id, row.deal_id, data.get("stage"), data.get("client_id"), data.get("client_name"),
+            data.get("property_id"), data.get("property_ref"), row.interest_status, _iso(row.interest_at),
+            row.deposit_amount, row.deposit_status, row.deposit_reference, row.preliminary_status,
+            row.preliminary_reference, _iso(row.transcribed_at), row.assignment_status,
+            row.assignment_reference, row.works_status, row.technical_validation, row.legal_validation,
+            row.closing_status, row.closing_reference, _iso(row.closing_at), row.next_action,
+            _iso(row.next_action_due_at), row.assigned_to_user_id,
+            transaction_names.get(row.assigned_to_user_id, ""), "; ".join(data.get("missing") or []),
+            row.version, row.notes, _iso(row.updated_at),
+        ) for row in transactions for data in [transaction_serializer(row) if transaction_serializer else {}]])
+        transaction_revisions = TransactionRevision.query.order_by(TransactionRevision.transaction_id.asc(), TransactionRevision.version.asc()).all() if TransactionRevision else []
+        _sheet(wb, "Storico trattative", [
+            "ID", "ID percorso", "Versione", "ID autore", "Autore", "Motivo", "Data", "Fotografia JSON",
+        ], [(
+            row.id, row.transaction_id, row.version, row.changed_by_user_id,
+            transaction_names.get(row.changed_by_user_id, ""), row.change_note,
+            _iso(row.created_at), row.snapshot_json,
+        ) for row in transaction_revisions])
         _sheet(wb, "Referral", ["ID", "ID cliente", "Email invitato", "Codice", "Stato", "Premio", "Creato il"], [
             (r.id, r.owner_id, r.friend_email, r.code, r.status, r.reward, _iso(r.created_at))
             for r in app_module.Referral.query.order_by(app_module.Referral.id.asc()).all()

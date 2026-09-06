@@ -32,6 +32,7 @@ from app.outreach import init_outreach
 from app.staff_protocol import init_staff_protocol
 from app.work_tasks import init_work_tasks
 from app.pilot_cases import init_pilot_cases
+from app.transactions import init_transactions
 
 
 class OperatorAccountsCheck(unittest.TestCase):
@@ -55,6 +56,7 @@ class OperatorAccountsCheck(unittest.TestCase):
         init_staff_protocol(cls.app, app_module)
         init_work_tasks(cls.app, app_module)
         init_pilot_cases(cls.app, app_module)
+        init_transactions(cls.app, app_module)
 
         with cls.app.app_context():
             for role, email in [
@@ -359,6 +361,8 @@ class OperatorAccountsCheck(unittest.TestCase):
         self.assertIn("Casi Oro", workbook.sheetnames)
         self.assertIn("Registro collaudo", workbook.sheetnames)
         self.assertEqual(workbook["Registro collaudo"].max_row, 29)
+        self.assertIn("Percorso trattative", workbook.sheetnames)
+        self.assertIn("Storico trattative", workbook.sheetnames)
         headers = [cell.value for cell in next(workbook["Immobili"].iter_rows(max_row=1))]
         self.assertIn("Trasformabilità", headers)
         self.assertIn("Costo lavori minimo", headers)
